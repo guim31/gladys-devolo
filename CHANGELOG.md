@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-15
+
 ### Added
 
 - devolo adapters (Magic, dLAN, WiFi Repeater) found through the mDNS search of the Gladys core,
@@ -23,4 +25,5 @@ the notes of the version's GitHub Release.
 - Dashboard widget "devolo PLC network".
 - English, French, German and Spanish, documentation included.
 
-[Unreleased]: https://github.com/guim31/gladys-devolo/commits/main
+[Unreleased]: https://github.com/guim31/gladys-devolo/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/guim31/gladys-devolo/releases/tag/v1.0.1

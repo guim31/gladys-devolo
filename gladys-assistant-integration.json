@@ -1,177 +1,544 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "devolo Home Network",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "PLC rates, Wi-Fi, guest Wi-Fi, LEDs, firmware and Wi-Fi presence of your devolo adapters.",
+    "fr": "Débits CPL, Wi-Fi, Wi-Fi invités, voyants, firmware et présence Wi-Fi de vos adaptateurs devolo.",
+    "de": "PLC-Raten, WLAN, Gast-WLAN, LEDs, Firmware und WLAN-Anwesenheit deiner devolo-Adapter.",
+    "es": "Velocidad PLC, Wi-Fi, Wi-Fi de invitados, LED, firmware y presencia Wi-Fi de sus adaptadores devolo."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-devolo:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
-  "transports": ["local", "cloud"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-devolo/main/cover.png",
+  "categories": ["network"],
+  "transports": ["local"],
+  "network_discovery": [
+    {
+      "type": "mdns",
+      "service": "_dvl-deviceapi._tcp"
+    },
+    {
+      "type": "mdns",
+      "service": "_dvl-plcnetapi._tcp"
+    }
+  ],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your devolo adapters",
+        "fr": "Vos adaptateurs devolo",
+        "de": "Deine devolo-Adapter",
+        "es": "Sus adaptadores devolo"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "The adapters (Magic, dLAN, WiFi Repeater) are found on the network by Gladys: run \"Search the adapters\", then add them in the Discover tab. Enter their addresses only if they sit on another network, and the device password only if you set one in the devolo Home Network app.",
+        "fr": "Gladys trouve les adaptateurs (Magic, dLAN, WiFi Repeater) sur le réseau : lancez « Rechercher les adaptateurs », puis ajoutez-les dans l'onglet Découverte. Saisissez leurs adresses seulement s'ils sont sur un autre réseau, et le mot de passe de l'appareil seulement si vous en avez défini un dans l'app devolo Home Network.",
+        "de": "Gladys findet die Adapter (Magic, dLAN, WiFi Repeater) im Netzwerk: Starte „Adapter suchen“ und füge sie dann im Tab „Entdecken“ hinzu. Gib ihre Adressen nur ein, wenn sie in einem anderen Netzwerk sind, und das Gerätekennwort nur, wenn du eines in der App devolo Home Network festgelegt hast.",
+        "es": "Gladys encuentra los adaptadores (Magic, dLAN, WiFi Repeater) en la red: ejecute «Buscar los adaptadores» y añádalos en la pestaña Descubrir. Introduzca sus direcciones solo si están en otra red, y la contraseña del dispositivo solo si definió una en la app devolo Home Network."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/guim31/gladys-devolo/blob/main/docs/en.md",
+          "label": {
+            "en": "Setup guide",
+            "fr": "Guide d'installation",
+            "de": "Installationsanleitung",
+            "es": "Guía de instalación"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
-      "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
-    },
-    {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
-      },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
-    },
-    {
-      "key": "unit",
-      "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "key": "addresses",
+      "type": "string",
       "required": false,
-      "default": "celsius",
+      "label": {
+        "en": "Adapter addresses (optional)",
+        "fr": "Adresses des adaptateurs (facultatif)",
+        "de": "Adressen der Adapter (optional)",
+        "es": "Direcciones de los adaptadores (opcional)"
+      },
+      "description": {
+        "en": "Only for adapters the network search does not find. Several addresses: separate them with commas.",
+        "fr": "Seulement pour les adaptateurs que la recherche ne trouve pas. Plusieurs adresses : séparez-les par des virgules.",
+        "de": "Nur für Adapter, die die Suche nicht findet. Mehrere Adressen: mit Kommas trennen.",
+        "es": "Solo para los adaptadores que la búsqueda no encuentra. Varias direcciones: sepárelas con comas."
+      },
+      "placeholder": {
+        "en": "e.g. 192.168.1.20, 192.168.1.21",
+        "fr": "ex. 192.168.1.20, 192.168.1.21",
+        "de": "z. B. 192.168.1.20, 192.168.1.21",
+        "es": "p. ej. 192.168.1.20, 192.168.1.21"
+      }
+    },
+    {
+      "key": "password",
+      "type": "secret",
+      "required": false,
+      "label": {
+        "en": "Device password",
+        "fr": "Mot de passe de l'appareil",
+        "de": "Gerätekennwort",
+        "es": "Contraseña del dispositivo"
+      },
+      "description": {
+        "en": "The one set in the devolo Home Network app, the same for every adapter. Empty: no password.",
+        "fr": "Celui défini dans l'app devolo Home Network, le même pour tous les adaptateurs. Vide : pas de mot de passe.",
+        "de": "Das in der App devolo Home Network festgelegte, für alle Adapter gleich. Leer: kein Kennwort.",
+        "es": "La definida en la app devolo Home Network, la misma para todos los adaptadores. Vacío: sin contraseña."
+      }
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "required": false,
+      "default": "30",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often LEDs, guest Wi-Fi and Wi-Fi devices are read. PLC rates: every 5 minutes.",
+        "fr": "Fréquence de lecture des voyants, du Wi-Fi invités et des appareils Wi-Fi. Débits CPL : toutes les 5 minutes.",
+        "de": "Wie oft LEDs, Gast-WLAN und WLAN-Geräte gelesen werden. PLC-Raten: alle 5 Minuten.",
+        "es": "Con qué frecuencia se leen los LED, la Wi-Fi de invitados y los dispositivos Wi-Fi. Velocidades PLC: cada 5 minutos."
+      },
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "15",
+          "label": {
+            "en": "15 seconds",
+            "fr": "15 secondes",
+            "de": "15 Sekunden",
+            "es": "15 segundos"
+          }
+        },
+        {
+          "value": "30",
+          "label": {
+            "en": "30 seconds",
+            "fr": "30 secondes",
+            "de": "30 Sekunden",
+            "es": "30 segundos"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
-      "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
-      },
+      "key": "offline_after",
+      "type": "select",
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": "180",
+      "label": {
+        "en": "Away after",
+        "fr": "Absent après",
+        "de": "Abwesend nach",
+        "es": "Fuera tras"
+      },
+      "description": {
+        "en": "Time a Wi-Fi device may be missing before it is shown away. Phones asleep on Wi-Fi drop off for a few minutes.",
+        "fr": "Durée pendant laquelle un appareil Wi-Fi peut disparaître avant d'être absent. Les téléphones en veille disparaissent quelques minutes.",
+        "de": "Zeit, die ein WLAN-Gerät fehlen darf, bevor es als abwesend gilt. Handys im Ruhezustand verschwinden für einige Minuten.",
+        "es": "Tiempo que un dispositivo Wi-Fi puede faltar antes de mostrarse fuera. Los móviles en reposo desaparecen unos minutos."
+      },
+      "options": [
+        {
+          "value": "0",
+          "label": {
+            "en": "At the first missing read",
+            "fr": "À la première lecture absente",
+            "de": "Beim ersten fehlenden Eintrag",
+            "es": "En la primera lectura sin él"
+          }
+        },
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "180",
+          "label": {
+            "en": "3 minutes",
+            "fr": "3 minutes",
+            "de": "3 Minuten",
+            "es": "3 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        },
+        {
+          "value": "600",
+          "label": {
+            "en": "10 minutes",
+            "fr": "10 minutes",
+            "de": "10 Minuten",
+            "es": "10 minutos"
+          }
+        },
+        {
+          "value": "900",
+          "label": {
+            "en": "15 minutes",
+            "fr": "15 minutes",
+            "de": "15 Minuten",
+            "es": "15 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "allow_restart",
+      "type": "boolean",
+      "required": false,
+      "default": false,
+      "label": {
+        "en": "Allow restarting the adapters",
+        "fr": "Autoriser le redémarrage des adaptateurs",
+        "de": "Neustart der Adapter erlauben",
+        "es": "Permitir reiniciar los adaptadores"
+      },
+      "description": {
+        "en": "Adds a \"Restart\" button to the adapters. A restart cuts the network for about a minute.",
+        "fr": "Ajoute un bouton « Redémarrer » aux adaptateurs. Un redémarrage coupe le réseau une minute environ.",
+        "de": "Fügt den Adaptern eine Schaltfläche „Neu starten“ hinzu. Ein Neustart unterbricht das Netzwerk für etwa eine Minute.",
+        "es": "Añade un botón «Reiniciar» a los adaptadores. Un reinicio corta la red durante un minuto aproximadamente."
+      }
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "required": false,
+      "default": "fr",
+      "label": {
+        "en": "Language of the feature names",
+        "fr": "Langue des noms de fonctionnalités",
+        "de": "Sprache der Funktionsnamen",
+        "es": "Idioma de los nombres de las funciones"
+      },
+      "description": {
+        "en": "Names given to the features of new devices, and language of the messages.",
+        "fr": "Noms donnés aux fonctionnalités des nouveaux appareils, et langue des messages.",
+        "de": "Namen der Funktionen neuer Geräte und Sprache der Meldungen.",
+        "es": "Nombres de las funciones de los nuevos dispositivos e idioma de los mensajes."
+      },
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
-      "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
+      "key": "search_adapters",
+      "label": {
+        "en": "Search the adapters",
+        "fr": "Rechercher les adaptateurs",
+        "de": "Adapter suchen",
+        "es": "Buscar los adaptadores"
+      },
+      "description": {
+        "en": "Searches the network, reads every adapter and lists them in the Discover tab.",
+        "fr": "Cherche sur le réseau, lit chaque adaptateur et les liste dans l'onglet Découverte.",
+        "de": "Durchsucht das Netzwerk, liest jeden Adapter und listet sie im Tab „Entdecken“ auf.",
+        "es": "Busca en la red, lee cada adaptador y los enumera en la pestaña Descubrir."
+      },
+      "timeout_seconds": 60
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "new_wifi_device",
+      "label": {
+        "en": "New Wi-Fi device",
+        "fr": "Nouvel appareil Wi-Fi",
+        "de": "Neues WLAN-Gerät",
+        "es": "Nuevo dispositivo Wi-Fi"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "A device never seen before connects to the Wi-Fi of a devolo adapter.",
+        "fr": "Un appareil jamais vu se connecte au Wi-Fi d'un adaptateur devolo.",
+        "de": "Ein nie gesehenes Gerät verbindet sich mit dem WLAN eines devolo-Adapters.",
+        "es": "Un dispositivo nunca visto se conecta a la Wi-Fi de un adaptador devolo."
       },
       "fields": [
         {
-          "key": "device",
+          "key": "network",
           "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
-        },
-        {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "required": false,
+          "label": {
+            "en": "Network (optional)",
+            "fr": "Réseau (facultatif)",
+            "de": "Netz (optional)",
+            "es": "Red (opcional)"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "main",
+              "label": {
+                "en": "Main Wi-Fi",
+                "fr": "Wi-Fi principal",
+                "de": "Haupt-WLAN",
+                "es": "Wi-Fi principal"
+              }
+            },
+            {
+              "value": "guest",
+              "label": {
+                "en": "Guest Wi-Fi",
+                "fr": "Wi-Fi invités",
+                "de": "Gast-WLAN",
+                "es": "Wi-Fi de invitados"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "mac",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "MAC address",
+            "fr": "Adresse MAC",
+            "de": "MAC-Adresse",
+            "es": "Dirección MAC"
+          }
+        },
+        {
+          "key": "adapter",
+          "type": "string",
+          "label": {
+            "en": "Adapter",
+            "fr": "Adaptateur",
+            "de": "Adapter",
+            "es": "Adaptador"
+          }
+        },
+        {
+          "key": "network",
+          "type": "string",
+          "label": {
+            "en": "Network",
+            "fr": "Réseau",
+            "de": "Netz",
+            "es": "Red"
+          }
+        },
+        {
+          "key": "band",
+          "type": "string",
+          "label": {
+            "en": "Band",
+            "fr": "Bande",
+            "de": "Band",
+            "es": "Banda"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "enable_guest_wifi",
+      "label": {
+        "en": "Turn on the guest Wi-Fi",
+        "fr": "Activer le Wi-Fi invités",
+        "de": "Gast-WLAN einschalten",
+        "es": "Activar la Wi-Fi de invitados"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Optionally for a while (the adapter turns it off by itself), and gives its name and password for a message.",
+        "fr": "Éventuellement pour un temps (l'adaptateur le coupe lui-même), et donne son nom et son mot de passe pour un message.",
+        "de": "Optional für eine Zeit (der Adapter schaltet es selbst aus), und liefert Name und Kennwort für eine Nachricht.",
+        "es": "Opcionalmente durante un tiempo (el adaptador la apaga solo), y da su nombre y contraseña para un mensaje."
+      },
+      "timeout_seconds": 60,
       "fields": [
         {
           "key": "device",
           "type": "select",
           "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "required": false,
+          "label": {
+            "en": "Adapter (optional)",
+            "fr": "Adaptateur (facultatif)",
+            "de": "Adapter (optional)",
+            "es": "Adaptador (opcional)"
+          },
+          "description": {
+            "en": "Empty: every adapter with Wi-Fi.",
+            "fr": "Vide : tous les adaptateurs avec Wi-Fi.",
+            "de": "Leer: alle Adapter mit WLAN.",
+            "es": "Vacío: todos los adaptadores con Wi-Fi."
+          }
+        },
+        {
+          "key": "duration_minutes",
+          "type": "number",
+          "required": false,
+          "min": 0,
+          "max": 1440,
+          "label": {
+            "en": "Turn off after (minutes)",
+            "fr": "Couper après (minutes)",
+            "de": "Ausschalten nach (Minuten)",
+            "es": "Apagar tras (minutos)"
+          },
+          "description": {
+            "en": "Empty or 0: stays on. At most 1440 (24 hours).",
+            "fr": "Vide ou 0 : reste activé. 1440 au plus (24 heures).",
+            "de": "Leer oder 0: bleibt an. Höchstens 1440 (24 Stunden).",
+            "es": "Vacío o 0: permanece activada. Como máximo 1440 (24 horas)."
+          }
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "ssid",
+          "type": "string",
+          "label": {
+            "en": "Guest Wi-Fi name",
+            "fr": "Nom du Wi-Fi invités",
+            "de": "Name des Gast-WLANs",
+            "es": "Nombre de la Wi-Fi de invitados"
+          }
+        },
+        {
+          "key": "password",
+          "type": "string",
+          "label": {
+            "en": "Guest Wi-Fi password",
+            "fr": "Mot de passe du Wi-Fi invités",
+            "de": "Kennwort des Gast-WLANs",
+            "es": "Contraseña de la Wi-Fi de invitados"
+          }
+        }
+      ]
+    },
+    {
+      "key": "disable_guest_wifi",
+      "label": {
+        "en": "Turn off the guest Wi-Fi",
+        "fr": "Couper le Wi-Fi invités",
+        "de": "Gast-WLAN ausschalten",
+        "es": "Apagar la Wi-Fi de invitados"
+      },
+      "description": {
+        "en": "On one adapter, or on every adapter with Wi-Fi.",
+        "fr": "Sur un adaptateur, ou sur tous les adaptateurs avec Wi-Fi.",
+        "de": "Auf einem Adapter oder auf allen Adaptern mit WLAN.",
+        "es": "En un adaptador o en todos los adaptadores con Wi-Fi."
+      },
+      "timeout_seconds": 60,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Adapter (optional)",
+            "fr": "Adaptateur (facultatif)",
+            "de": "Adapter (optional)",
+            "es": "Adaptador (opcional)"
+          },
+          "description": {
+            "en": "Empty: every adapter with Wi-Fi.",
+            "fr": "Vide : tous les adaptateurs avec Wi-Fi.",
+            "de": "Leer: alle Adapter mit WLAN.",
+            "es": "Vacío: todos los adaptadores con Wi-Fi."
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
+      "key": "plc_network",
+      "label": {
+        "en": "devolo PLC network",
+        "fr": "Réseau CPL devolo",
+        "de": "devolo-PLC-Netzwerk",
+        "es": "Red PLC devolo"
+      },
       "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+        "en": "Adapters online, PLC rates to the router, Wi-Fi devices and guest Wi-Fi.",
+        "fr": "Adaptateurs en ligne, débits CPL vers le routeur, appareils Wi-Fi et Wi-Fi invités.",
+        "de": "Adapter online, PLC-Raten zum Router, WLAN-Geräte und Gast-WLAN.",
+        "es": "Adaptadores en línea, velocidades PLC al router, dispositivos Wi-Fi y Wi-Fi invitados."
       },
       "icon": "activity",
-      "action_timeout_seconds": 15
+      "action_timeout_seconds": 30
     }
   ]
 }

@@ -30,6 +30,21 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- **Secrets**: the device password of the adapters lives in the Gladys configuration (a `secret`
+  field), never on disk in the container and never in the logs. It travels to the adapters only
+  as an HTTP Digest response, never in clear. The guest Wi-Fi name and key are read from the
+  adapters for the "Turn on the guest Wi-Fi" scene action, returned to the scene, never logged nor
+  stored.
+- **`/data`**: `state.json` holds where the APIs of each adapter live (address, ports, paths,
+  features, serial number, PLC MAC address) and the MAC addresses of the Wi-Fi devices already
+  seen (for the "New Wi-Fi device" trigger). No password.
+- **Network**: plain HTTP to the adapters on the local network (the devolo API offers no HTTPS),
+  and a unicast DNS query to UDP port 5353 of the addresses typed in the configuration. The
+  integration opens no listening port. The adapters themselves contact devolo's update server
+  when asked for a firmware check (every 6 hours).
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and the devolo adapters and their firmware.

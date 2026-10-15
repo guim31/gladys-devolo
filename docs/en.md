@@ -1,61 +1,152 @@
-# Demo Devices Template
+# devolo Home Network
 
-This is the user documentation of the integration. Gladys re-hosts this file
-and shows a permanent **Documentation** link to it in the Configuration screen
-(in the user's language, with English as the fallback) — it is when
-configuring that the user needs it most. Keep the short onboarding hints in
-the `section` blocks of the manifest `config_schema`; put the long
-step-by-step (screenshots, troubleshooting…) here.
+Follow and control your **devolo powerline (PLC) adapters** from Gladys: devolo Magic, dLAN and
+WiFi Repeater. The integration talks to the adapters on your local network, through the same API
+as the devolo Home Network app: no cloud, no account.
 
-## What you get
+> **Developed without the hardware: feedback welcome.** The protocol comes from the open-source
+> devolo library and the Home Assistant integration, and the tests run against a simulated
+> network. If something does not work with your adapters, open an issue on the GitHub repository.
 
-Six demo devices show up after installation: a weather station (real data
-from Open-Meteo), a switch, a dimmable light, a smart plug with power
-metering, a motion sensor and a camera.
+This integration is not affiliated with devolo.
+
+## Overview
+
+- **One device per adapter**: online or not, the PLC rate to every other adapter of the network,
+  the number of Wi-Fi devices connected to it, its firmware version and whether devolo offers a
+  newer one.
+- **Commands**: guest Wi-Fi on/off, LEDs on/off, "Identify" (the adapter blinks), and "Restart"
+  if you allow it in the configuration.
+- **Presence**: the Wi-Fi devices you choose (phones…) become presence sensors: home while they are
+  connected to a devolo adapter.
+- **Dashboard widget**: the state of the PLC network at a glance.
+- **Scenes**: a trigger when a device never seen before joins the Wi-Fi, and actions to turn the
+  guest Wi-Fi on (for a while) or off.
+
+## Requirements
+
+- Gladys Assistant **5.1.0** or later.
+- devolo adapters with the devolo Home Network API: devolo Magic 1 and 2 (LAN and WiFi), dLAN
+  1200+/550+ WiFi and the devolo WiFi Repeaters. Very old dLAN adapters without this API cannot
+  be read, but they still appear as peers of the others (with their rates).
+- The adapters on the same local network as Gladys. If they are on another network (VLAN,
+  subnet), type their addresses in the configuration.
+- The **device password** if you set one in the devolo Home Network app (Settings of the
+  adapter). Without one, leave the field empty.
 
 ## Configuration
 
-1. Open the **Configuration** tab of the integration.
-2. Set the **latitude** and **longitude** the demo weather station should
-   observe (they default to Paris), and pick your temperature unit.
-   The **refresh interval** sets how often the weather station and the
-   plug's power are read: every 5 minutes by default, every minute at most.
-3. Save: the devices appear in the **Discovery** tab, ready to be added.
+1. In Gladys, open **Integrations → devolo Home Network → Configuration**.
+2. Fill in the fields if needed:
+   - **Adapter addresses (optional)**: only for the adapters the network search does not find,
+     separated by commas (e.g. `192.168.1.20, 192.168.1.21`). Give them a fixed address in your
+     router: the integration also finds them again after a change of address.
+   - **Device password**: the one of the devolo Home Network app, the same for every adapter.
+     Some firmwares expect it hashed: the integration tries both.
+   - **Refresh interval**: how often the LEDs, the guest Wi-Fi and the Wi-Fi devices are read
+     (30 seconds by default). The PLC rates are read every 5 minutes, the firmware check every
+     6 hours.
+   - **Away after**: how long a Wi-Fi device may be missing before it is shown away (3 minutes by
+     default).
+   - **Allow restarting the adapters**: off by default. When on, a "Restart" button is added to
+     the adapters (update them in the Discover tab).
+   - **Language of the feature names**: French by default.
+3. Click **Search the adapters**: the integration lists what it found and whether each adapter
+   answers.
+4. In the **Discover** tab, add the adapters, and the Wi-Fi devices you want to follow.
 
-The **Prefer the local connection** toggle drives the demo plug: it reports
-the channel it actually uses as a badge (local or cloud), with an orange dot
-when it runs degraded (local refused, cloud fallback).
+Traffic and quotas: everything stays on your local network, devolo sets no quota on this API.
+The integration sends a few small requests per adapter at each refresh, one at a time, as Home
+Assistant does. Only the firmware check makes the adapter contact devolo's update server, every
+6 hours.
 
-## Actions
+## Devices
 
-- **Test the weather provider** — performs a live request to Open-Meteo and
-  shows the current temperature and humidity under the button.
-- **Identify a device** — pick one of your devices in the list and it will
-  signal itself (the demo light "blinks" in the logs).
+### devolo adapter
 
-## Scenes
+| Feature                   | Type             | What it says                                               |
+| ------------------------- | ---------------- | ---------------------------------------------------------- |
+| Online                    | sensor           | 1 when the adapter answers, 0 after two missed reads       |
+| PLC rate to … / from …    | rate, Mbit/s     | PHY rate of the powerline link to and from another adapter |
+| Wi-Fi devices             | counter          | devices connected to its Wi-Fi (main and guest)            |
+| Guest Wi-Fi               | switch           | turns the guest Wi-Fi on or off                            |
+| LEDs                      | switch           | turns the LEDs of the adapter on or off                    |
+| Firmware                  | text             | installed firmware version                                 |
+| Firmware update available | sensor           | 1 when devolo offers a newer firmware                      |
+| Identify (blink)          | button           | the adapter blinks for a while                             |
+| Restart                   | button, optional | restarts the adapter (only when allowed)                   |
 
-The integration adds its own cards to the scene editor (Gladys 5.1 or
-later), under the **Integrations** category:
+The features follow what each adapter announces: a Magic 2 LAN has no Wi-Fi features, a Wi-Fi
+repeater has no PLC rates. The rates exist for the adapters of the PLC network known when you add
+the device; when an adapter joins the network later, the Discover tab offers to update the device.
+The update itself is not installed from Gladys: use the devolo Home Network app.
 
-- **Motion detected** (trigger) — starts the scene when a demo motion sensor
-  sees something move. Optionally pick the sensor and what moved (person,
-  animal); left empty, any detection matches. The following actions can
-  read what moved with `{{triggerEvent.data.target}}`.
-- **Identify a device** (action) — makes the chosen device signal itself.
-  It returns whether the device could signal itself, so the following
-  actions can depend on it.
+### Wi-Fi device
 
-## Dashboard
+| Feature  | Type           | What it says                                        |
+| -------- | -------------- | --------------------------------------------------- |
+| Presence | presence (0/1) | 1 while the device is connected to a devolo adapter |
 
-Add the **Demo status** widget to a dashboard: it shows the live
-temperature of the weather station and the power of the office plug, the
-connection the plug currently uses (orange when degraded) and the observed
-location. Its **Identify the light** button makes the demo light signal
-itself.
+The adapters only give the MAC address of a Wi-Fi device: the Discover tab names it
+"Wi-Fi device 00:00:5E:…". Rename it after adding it. A phone using a random ("private") Wi-Fi
+address must use its real address on your network for presence to work.
+
+## Widget
+
+**devolo PLC network**: how many adapters are online, how many Wi-Fi devices they serve, the
+slowest PLC link to the adapter plugged into the router (the one that limits the internet speed of
+a room), then one row per adapter: its rates to the router adapter (green from 100 Mbit/s, orange
+from 30 Mbit/s, red below), "Plugged into the router", or "Offline". A pending firmware update is
+noted on the row. A button turns the guest Wi-Fi of every adapter on or off. No MAC address and no
+password are shown: the dashboard can be shown to visitors.
+
+## Scene trigger
+
+**New Wi-Fi device**: a device never seen before connects to the Wi-Fi of a devolo adapter. The
+devices connected when an adapter is read for the first time are learned silently, and the list is
+kept across restarts. Optional filter: main or guest Wi-Fi. Variables: `mac`, `adapter`, `network`
+(`main` or `guest`), `band` (`2.4 GHz` or `5 GHz`).
+
+## Scene actions
+
+- **Turn on the guest Wi-Fi**: on one adapter or on every adapter with Wi-Fi, optionally for a
+  number of minutes (at most 1440): the adapter turns it off by itself afterwards. Outputs: `ssid`
+  (name of the guest Wi-Fi) and `password`, to send them in a message.
+- **Turn off the guest Wi-Fi**: on one adapter or on every adapter with Wi-Fi.
+
+## Scene examples
+
+- **Guests coming**: when you press a button, turn on the guest Wi-Fi for 240 minutes and send
+  "Wi-Fi {{ssid}}, password {{password}}" to the family chat.
+- **Unknown device**: on "New Wi-Fi device" on the main Wi-Fi, send a notification with the MAC
+  address and the adapter.
+- **Nobody home**: when the presence of every phone goes to 0, turn the LEDs of the adapters off
+  and the guest Wi-Fi off; turn the LEDs on again when someone comes home.
+- **Weak link**: when the "PLC rate to …" of the office adapter stays under 50 Mbit/s, send a
+  notification (a plug strip or a charger may disturb the line).
 
 ## Troubleshooting
 
-The integration logs everything it does: check the integration logs from the
-Gladys UI (or `docker logs` on the host) with `LOG_LEVEL=debug` for the full
-detail.
+- **"No devolo adapter found"**: check that the adapters are on the same network as Gladys, run
+  "Search the adapters" again, or type their addresses in the configuration.
+- **"refused the password"**: type the device password of the devolo Home Network app; leave it
+  empty if none is set. The status says which adapter refuses it.
+- **An adapter "does not answer"**: it is unplugged, or in standby, or got a new address. The
+  integration searches the network again after a few missed reads.
+- **No rate for an adapter**: the PLC rates come every 5 minutes; the Wi-Fi-only repeaters have
+  none.
+- **A Wi-Fi device stays away**: it may be connected to your box's Wi-Fi rather than to a devolo
+  adapter, or use a random Wi-Fi address.
+- Logs: **Integrations → devolo Home Network → Logs**. Set `LOG_LEVEL=debug` for every read.
+
+## Limits
+
+- Presence only sees the devices connected to a **devolo** Wi-Fi, not to your box or another
+  access point.
+- When no Wi-Fi adapter answers, presence stays as it was.
+- The guest Wi-Fi name and password are those set in the devolo Home Network app; they cannot be
+  changed from Gladys.
+- Firmware updates, pairing, WPS and the Wi-Fi settings are left to the devolo Home Network app.
+- devolo Home Control gateways are not supported (they are not network adapters).
+- The rates are PHY rates as the adapters report them, not the real throughput.
+- Developed without the hardware: the behaviour with real adapters has not been checked yet.

@@ -1,77 +1,99 @@
+// -----------------------------------------------------------------------------
+// The dashboard widget: content within the core vocabulary and budget, the
+// rows of the adapters, the guest Wi-Fi button, the empty state.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { WIDGET_COLORS, validateWidgetContent } from '@gladysassistant/integration-sdk';
+import { WIDGET_KEY } from '../src/hub.js';
+import { adapterRow, rateColor } from '../src/widgets.js';
+import { LANGUAGES } from '../src/config.js';
+import { createWorld, cycleAfter } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+const content = async (world, language = 'fr') => {
+  const ack = await world.fake.widgetGet(WIDGET_KEY, { settings: {}, language, units: 'metric' });
+  assert.equal(ack.success, true, ack.error);
+  return ack.data.content;
+};
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
-
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
-
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
+test('the PLC network at a glance, valid in every language', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  for (const language of LANGUAGES) {
+    const widget = await content(world, language);
+    assert.deepEqual(validateWidgetContent(widget), [], language);
   }
-});
-
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
+  const widget = await content(world, 'fr');
+  const tiles = widget.components.filter((component) => component.type === 'value');
+  assert.deepEqual(
+    tiles.map((tile) => [tile.label, tile.value]),
+    [
+      ['En ligne', '3 / 3'],
+      ['Appareils Wi-Fi', 1],
+      ['Lien le plus lent', 100],
+    ],
   );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
-});
-
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
-  }
-});
-
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
+  const [status] = widget.components.filter((component) => component.type === 'status');
+  assert.deepEqual(
+    status.items.map((item) => [item.label, item.value, item.color]),
+    [
+      ['dLAN pro 1200+ WiFi ac (test1)', '↑ 100 ↓ 100 Mbit/s', WIDGET_COLORS.SUCCESS],
+      ['devolo Magic 2 LAN (test2)', 'Branché au routeur', WIDGET_COLORS.SUCCESS],
+      ['devolo WiFi 6 Repeater 3000', 'En ligne', WIDGET_COLORS.SUCCESS],
+    ],
   );
+  const [button] = widget.components.filter((component) => component.type === 'button');
+  assert.equal(button.label, 'Activer Wi-Fi invités');
+  assert.deepEqual(button.action, { key: 'guest_wifi', params: { enable: true } });
+  // No MAC address nor password on a dashboard.
+  assert.doesNotMatch(JSON.stringify(widget), /00:00:5E|HMANPGBA/);
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('the button switches the guest Wi-Fi of every adapter, then offers the opposite', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const ack = await world.fake.widgetAction(
+    WIDGET_KEY,
+    'guest_wifi',
+    { enable: true },
+    { settings: {} },
+  );
+  assert.equal(ack.success, true);
+  assert.equal(world.net.adapter('1234567890').guest.enabled, true);
+  assert.equal(world.net.adapter('1234567892').guest.enabled, true);
+  const widget = await content(world, 'en');
+  const [button] = widget.components.filter((component) => component.type === 'button');
+  assert.equal(button.label, 'Turn off guest Wi-Fi');
+});
+
+test('an offline adapter and a firmware update show in the rows', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.net.adapter('1234567892').reachable = false;
+  await cycleAfter(world);
+  await cycleAfter(world);
+  const widget = await content(world, 'en');
+  const [status] = widget.components.filter((component) => component.type === 'status');
+  assert.deepEqual(status.items[2].value, 'Offline');
+  assert.equal(status.items[2].color, WIDGET_COLORS.DANGER);
+  assert.equal(status.items[0].value, '↑ 100 ↓ 100 Mbit/s · update');
+});
+
+test('rates are colored by quality', () => {
+  assert.equal(rateColor({ tx: 400, rx: 120 }), WIDGET_COLORS.SUCCESS);
+  assert.equal(rateColor({ tx: 400, rx: 60 }), WIDGET_COLORS.WARNING);
+  assert.equal(rateColor({ tx: 20, rx: 60 }), WIDGET_COLORS.DANGER);
+  const row = adapterRow({ name: 'x'.repeat(80), online: null }, 'de');
+  assert.equal(row.label.length, 40);
+  assert.equal(row.value, 'Unbekannt');
+});
+
+test('no adapter yet: one text that says what to check', async (t) => {
+  const world = await createWorld({ mdns: false });
+  t.after(() => world.app.stop());
+  const widget = await content(world, 'es');
+  assert.deepEqual(validateWidgetContent(widget), []);
+  assert.equal(widget.components.length, 1);
+  assert.match(widget.components[0].text, /^Aún no se ha encontrado/);
 });

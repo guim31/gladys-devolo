@@ -1,0 +1,91 @@
+[
+  {
+    "name": "dLAN pro 1200+ WiFi ac._dvl-deviceapi._tcp.local",
+    "host": "devolo-930.local",
+    "addresses": ["192.0.2.1"],
+    "port": 14791,
+    "txt": [
+      "Path=abcdefghijkl/deviceapi",
+      "Version=v0",
+      "Product=dLAN pro 1200+ WiFi ac",
+      "Features=intmtg1,led,reset,restart,update,wifi1",
+      "MT=2730",
+      "SN=1234567890",
+      "FirmwareVersion=5.6.1",
+      "FirmwareDate=2020-10-23",
+      "PS=",
+      "PlcMacAddress=00:00:5E:00:53:00"
+    ]
+  },
+  {
+    "name": "dLAN pro 1200+ WiFi ac._dvl-plcnetapi._tcp.local",
+    "host": "devolo-930.local",
+    "addresses": ["192.0.2.1"],
+    "port": 14791,
+    "txt": [
+      "Path=abcdefghijkl/plcnetapi",
+      "PlcMacAddress=00:00:5E:00:53:00",
+      "PlcTechnology=hpav",
+      "Version=v0"
+    ]
+  },
+  {
+    "name": "devolo Magic 2 LAN._dvl-deviceapi._tcp.local",
+    "host": "devolo-512.local",
+    "addresses": ["192.0.2.2"],
+    "port": 14791,
+    "txt": [
+      "Path=mnopqrstuvwx/deviceapi",
+      "Version=v0",
+      "Product=devolo Magic 2 LAN",
+      "Features=reset,update,led,intmtg,restart",
+      "MT=8279",
+      "SN=1234567891",
+      "FirmwareVersion=7.12.5",
+      "FirmwareDate=2023-02-07",
+      "PlcMacAddress=00:00:5E:00:53:02"
+    ]
+  },
+  {
+    "name": "devolo Magic 2 LAN._dvl-plcnetapi._tcp.local",
+    "host": "devolo-512.local",
+    "addresses": ["192.0.2.2"],
+    "port": 14791,
+    "txt": [
+      "Path=mnopqrstuvwx/plcnetapi",
+      "PlcMacAddress=00:00:5E:00:53:02",
+      "PlcTechnology=ghn",
+      "Version=v0"
+    ]
+  },
+  {
+    "name": "devolo WiFi 6 Repeater 3000._dvl-deviceapi._tcp.local",
+    "host": "devolo-077.local",
+    "addresses": ["192.0.2.3"],
+    "port": 14791,
+    "txt": [
+      "Path=yzabcdefghij/deviceapi",
+      "Version=v0",
+      "Product=devolo WiFi 6 Repeater 3000",
+      "Features=led,reset,restart,update,wifi1",
+      "MT=3254",
+      "SN=1234567892",
+      "FirmwareVersion=5.11.0",
+      "FirmwareDate=2023-06-12"
+    ]
+  },
+  {
+    "name": "devolo Home Control Central Unit._dvl-deviceapi._tcp.local",
+    "host": "devolo-hc.local",
+    "addresses": ["192.0.2.4"],
+    "port": 80,
+    "txt": ["path=deviceapi", "Version=v0", "MT=2600", "SN=1234567893"]
+  },
+  {
+    "name": "Printer._ipp._tcp.local",
+    "host": "printer.local",
+    "addresses": ["192.0.2.5"],
+    "port": 631,
+    "txt": ["Path=/ipp", "Version=v1"]
+  }
+]

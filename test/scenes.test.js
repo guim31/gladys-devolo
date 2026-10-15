@@ -1,93 +1,72 @@
+// -----------------------------------------------------------------------------
+// The scene actions: guest Wi-Fi on (optionally for a while, by the adapter's
+// own timer) with its name and password as outputs, and off.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { DEVICE_BLUEPRINTS } from '../src/devices/index.js';
-import { MOTION_DETECTED_TRIGGER, motionSensor } from '../src/devices/motionSensor.js';
-import { SCENE_ACTIONS } from '../src/scenes.js';
-import { normalizeConfig } from '../src/config.js';
+import { minutesOf } from '../src/scenes.js';
+import { GUEST_KEY } from './helpers/fakeAdapter.js';
+import { CONFIG, adapterDevice, create, createWorld, cycleAfter, state } from './helpers/world.js';
 
-const manifest = JSON.parse(
-  await readFile(new URL('../gladys-assistant-integration.json', import.meta.url), 'utf8'),
-);
-const config = normalizeConfig();
-
-const declarationOf = (list, key) => manifest[list].find((entry) => entry.key === key);
-const keysOf = (list) => (list ?? []).map((entry) => entry.key);
-const deviceIdOf = (gladys, key) =>
-  DEVICE_BLUEPRINTS.find((bp) => bp.key === key).deviceExternalId(gladys);
-
-// Let the async interval callback run to completion.
-const flush = () => new Promise((resolve) => setImmediate(resolve));
-
-test('the motion sensor fires one motion_detected event per detection, none on the clear', async (t) => {
-  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
-  const gladys = createFakeGladys();
-  const stopPush = motionSensor.startPush(gladys, config);
-  try {
-    t.mock.timers.tick(60_000);
-    await flush();
-    assert.equal(gladys.fake.sceneEvents.length, 1, 'one detection, one event');
-    assert.equal(gladys.fake.sceneEvents[0].key, MOTION_DETECTED_TRIGGER);
-    assert.equal(gladys.fake.states.at(-1).state, 1, 'the state is still published');
-
-    t.mock.timers.tick(10_000);
-    await flush();
-    assert.equal(gladys.fake.states.at(-1).state, 0, 'the detection is cleared');
-    assert.equal(gladys.fake.sceneEvents.length, 1, 'the clear fires no event');
-  } finally {
-    stopPush();
-  }
+test('minutes from a field or a scene variable', () => {
+  assert.equal(minutesOf(30), 30);
+  assert.equal(minutesOf('45,4'), 45);
+  assert.equal(minutesOf(''), 0);
+  assert.equal(minutesOf(undefined), 0);
+  assert.equal(minutesOf(-5), 0);
+  assert.equal(minutesOf(99999), 1440);
 });
 
-test('motion_detected data only carries keys the trigger declares', async (t) => {
-  t.mock.timers.enable({ apis: ['setInterval', 'setTimeout'] });
-  const gladys = createFakeGladys();
-  const stopPush = motionSensor.startPush(gladys, config);
-  try {
-    t.mock.timers.tick(60_000);
-    await flush();
-  } finally {
-    stopPush();
-  }
-  const [{ data }] = gladys.fake.sceneEvents;
-  const trigger = declarationOf('scene_triggers', MOTION_DETECTED_TRIGGER);
-  // The core keeps the `fields` keys (filters) and the `variables` keys
-  // (exposed to the scene): any other key would be silently dropped.
-  const declared = [...keysOf(trigger.fields), ...keysOf(trigger.variables)];
-  for (const [key, value] of Object.entries(data)) {
-    assert.ok(declared.includes(key), `data.${key} is not declared, the core would drop it`);
-    assert.ok(value === null || typeof value !== 'object', `data.${key} must be a primitive`);
-  }
-  // A `"source": "devices"` filter stores a device external_id.
-  assert.equal(data.device, deviceIdOf(gladys, 'motion-sensor'));
-  const targets = trigger.fields.find((field) => field.key === 'target').options;
-  assert.ok(
-    targets.some((option) => option.value === data.target),
-    `data.target "${data.target}" must be one of the filter options`,
-  );
-});
-
-test('identify_device signals the chosen device and returns the declared outputs', async () => {
-  const gladys = createFakeGladys();
-  const outputs = await SCENE_ACTIONS.identify_device(gladys, {
-    fields: { device: deviceIdOf(gladys, 'light') },
-    config,
+test('enable_guest_wifi: every Wi-Fi adapter, with a duration, gives name and password', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const wifi = await create(world, adapterDevice(world, '1234567890'));
+  const result = await world.fake.sceneAction('enable_guest_wifi', { duration_minutes: 90 });
+  assert.deepEqual(result, {
+    success: true,
+    data: { outputs: { ssid: 'devolo-guest-930', password: GUEST_KEY } },
   });
-  assert.deepEqual(outputs, { signalled: true });
-  const declared = keysOf(declarationOf('scene_actions', 'identify_device').outputs);
-  for (const key of Object.keys(outputs)) {
-    assert.ok(declared.includes(key), `output "${key}" is not declared, the core would drop it`);
+  for (const sn of ['1234567890', '1234567892']) {
+    assert.deepEqual(world.net.adapter(sn).guestSets, [{ enable: true, duration: 90 }]);
   }
+  assert.equal(state(world, wifi, 'guest_wifi'), 1);
 });
 
-test('identify_device reports a device that cannot signal itself through its output', async () => {
-  // Not a failure: a scene action is never a condition, the scene author
-  // gates the following actions on the output instead.
-  const gladys = createFakeGladys();
-  const outputs = await SCENE_ACTIONS.identify_device(gladys, {
-    fields: { device: deviceIdOf(gladys, 'weather-station') },
-    config,
+test('every adapter: an offline one is left out', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.net.adapter('1234567892').reachable = false;
+  await cycleAfter(world);
+  await cycleAfter(world);
+  const result = await world.fake.sceneAction('disable_guest_wifi', {});
+  assert.equal(result.success, true);
+  assert.equal(world.net.adapter('1234567890').guestSets.length, 1);
+});
+
+test('enable/disable on one adapter only', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const repeater = adapterDevice(world, '1234567892');
+  await world.fake.sceneAction('enable_guest_wifi', { device: repeater.external_id });
+  assert.deepEqual(world.net.adapter('1234567892').guestSets, [{ enable: true, duration: 0 }]);
+  assert.deepEqual(world.net.adapter('1234567890').guestSets, []);
+  const off = await world.fake.sceneAction('disable_guest_wifi', { device: repeater.external_id });
+  assert.equal(off.success, true);
+  assert.equal(world.net.adapter('1234567892').guest.enabled, false);
+});
+
+test('an adapter without Wi-Fi, or no Wi-Fi adapter at all: a clear error', async (t) => {
+  const world = await createWorld({ config: { ...CONFIG, language: 'en' } });
+  t.after(() => world.app.stop());
+  const magic = adapterDevice(world, '1234567891');
+  const refused = await world.fake.sceneAction('enable_guest_wifi', { device: magic.external_id });
+  assert.deepEqual(refused, { success: false, error: 'Choose a devolo adapter with Wi-Fi.' });
+  const lan = await createWorld({
+    network: { only: ['1234567891'] },
+    config: { ...CONFIG, language: 'en' },
   });
-  assert.deepEqual(outputs, { signalled: false });
+  t.after(() => lan.app.stop());
+  const none = await lan.fake.sceneAction('disable_guest_wifi', {});
+  assert.deepEqual(none, { success: false, error: 'No devolo adapter with Wi-Fi is known.' });
 });

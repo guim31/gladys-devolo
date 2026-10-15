@@ -464,7 +464,11 @@ export class Hub {
       return;
     }
     const now = this.now();
-    if (this.adapters.size === 0 || now - this.lastDiscoverAt >= this.timings.rediscoverMs) {
+    // Nothing found yet: searched again every 10 minutes (and at each scan
+    // or "Search the adapters"), not at every cycle.
+    const searchEvery =
+      this.adapters.size === 0 ? this.timings.lostRediscoverMs : this.timings.rediscoverMs;
+    if (now - this.lastDiscoverAt >= searchEvery) {
       await this.discover();
     }
     const overviewDue = overview ?? now - this.overviewAt >= this.timings.overviewMs;
@@ -817,7 +821,10 @@ export class Hub {
       }
       return [entry];
     }
-    const entries = [...this.adapters.values()].filter((entry) => entry.client.has('wifi1'));
+    // Every adapter: the ones known to be offline are left out.
+    const entries = [...this.adapters.values()].filter(
+      (entry) => entry.client.has('wifi1') && entry.online !== false,
+    );
     if (entries.length === 0) {
       throw new GladysError(render(ERRORS, 'noWifi'), this.config.language);
     }

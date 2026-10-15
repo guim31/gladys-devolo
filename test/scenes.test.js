@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { minutesOf } from '../src/scenes.js';
 import { GUEST_KEY } from './helpers/fakeAdapter.js';
-import { CONFIG, adapterDevice, createWorld, state, create } from './helpers/world.js';
+import { CONFIG, adapterDevice, create, createWorld, cycleAfter, state } from './helpers/world.js';
 
 test('minutes from a field or a scene variable', () => {
   assert.equal(minutesOf(30), 30);
@@ -31,6 +31,17 @@ test('enable_guest_wifi: every Wi-Fi adapter, with a duration, gives name and pa
     assert.deepEqual(world.net.adapter(sn).guestSets, [{ enable: true, duration: 90 }]);
   }
   assert.equal(state(world, wifi, 'guest_wifi'), 1);
+});
+
+test('every adapter: an offline one is left out', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  world.net.adapter('1234567892').reachable = false;
+  await cycleAfter(world);
+  await cycleAfter(world);
+  const result = await world.fake.sceneAction('disable_guest_wifi', {});
+  assert.equal(result.success, true);
+  assert.equal(world.net.adapter('1234567890').guestSets.length, 1);
 });
 
 test('enable/disable on one adapter only', async (t) => {

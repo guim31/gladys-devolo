@@ -214,9 +214,16 @@ test('adapters expecting the hashed password are read too', async (t) => {
   assert.deepEqual(world.fake.connectionStatus, { connected: true });
 });
 
-test('no adapter on the network: the status says what to do', async (t) => {
+test('no adapter on the network: the status says what to do, searched every 10 minutes', async (t) => {
   const world = await createWorld({ mdns: false });
   t.after(() => world.app.stop());
+  const scans = () =>
+    world.fake.requests.filter((r) => r.path.includes('network_discovery')).length;
+  const before = scans();
+  await cycleAfter(world);
+  assert.equal(scans(), before);
+  await cycleAfter(world, 10 * 60 * 1000);
+  assert.equal(scans(), before + 1);
   assert.deepEqual(world.fake.discoveredDevices, []);
   assert.deepEqual(world.fake.connectionStatus, {
     connected: false,

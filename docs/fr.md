@@ -1,67 +1,160 @@
-# Template de démonstration
+# devolo Home Network
 
-Ceci est la documentation utilisateur de l'intégration. Gladys ré-héberge ce
-fichier et affiche un lien **Documentation** permanent vers lui dans l'écran
-de configuration (dans la langue de l'utilisateur, avec l'anglais en repli) —
-c'est au moment de configurer que l'utilisateur en a le plus besoin. Gardez
-les courtes indications d'accueil dans les blocs `section` du `config_schema`
-du manifest ; mettez ici le pas-à-pas détaillé (captures d'écran, dépannage…).
+Suivez et pilotez vos **adaptateurs CPL devolo** depuis Gladys : devolo Magic, dLAN et WiFi
+Repeater. L'intégration dialogue avec les adaptateurs sur votre réseau local, par la même API que
+l'app devolo Home Network : pas de cloud, pas de compte.
 
-## Ce que vous obtenez
+> **Développée sans le matériel : vos retours sont les bienvenus.** Le protocole vient de la
+> bibliothèque open source de devolo et de l'intégration Home Assistant, et les tests tournent
+> contre un réseau simulé. Si quelque chose ne marche pas avec vos adaptateurs, ouvrez une issue
+> sur le dépôt GitHub.
 
-Six appareils de démonstration apparaissent après l'installation : une
-station météo (vraies données Open-Meteo), un interrupteur, une lampe
-variable, une prise connectée avec mesure de puissance, un détecteur de
-mouvement et une caméra.
+Cette intégration n'est pas affiliée à devolo.
+
+## Présentation
+
+- **Un appareil par adaptateur** : en ligne ou non, le débit CPL vers chaque autre adaptateur du
+  réseau, le nombre d'appareils Wi-Fi connectés, la version du firmware et la disponibilité d'une
+  mise à jour.
+- **Commandes** : Wi-Fi invités marche/arrêt, voyants marche/arrêt, « Identifier » (l'adaptateur
+  clignote), et « Redémarrer » si vous l'autorisez dans la configuration.
+- **Présence** : les appareils Wi-Fi que vous choisissez (téléphones…) deviennent des capteurs de
+  présence : présents tant qu'ils sont connectés à un adaptateur devolo.
+- **Widget** : l'état du réseau CPL d'un coup d'œil.
+- **Scènes** : un déclencheur quand un appareil jamais vu rejoint le Wi-Fi, et des actions pour
+  activer (pour un temps) ou couper le Wi-Fi invités.
+
+## Prérequis
+
+- Gladys Assistant **5.1.0** ou plus récent.
+- Des adaptateurs devolo dotés de l'API devolo Home Network : devolo Magic 1 et 2 (LAN et WiFi),
+  dLAN 1200+/550+ WiFi et les répéteurs devolo WiFi Repeater. Les très anciens dLAN sans cette API
+  ne peuvent pas être lus, mais ils apparaissent comme voisins des autres (avec leurs débits).
+- Les adaptateurs sur le même réseau local que Gladys. S'ils sont sur un autre réseau (VLAN,
+  sous-réseau), saisissez leurs adresses dans la configuration.
+- Le **mot de passe de l'appareil** si vous en avez défini un dans l'app devolo Home Network
+  (Réglages de l'adaptateur). Sinon, laissez le champ vide.
 
 ## Configuration
 
-1. Ouvrez l'onglet **Configuration** de l'intégration.
-2. Renseignez la **latitude** et la **longitude** que la station météo de
-   démonstration doit observer (Paris par défaut), et choisissez votre unité
-   de température. L'**intervalle de rafraîchissement** règle la fréquence
-   de lecture de la station météo et de la puissance de la prise : toutes
-   les 5 minutes par défaut, toutes les minutes au plus.
-3. Enregistrez : les appareils apparaissent dans l'onglet **Découverte**,
-   prêts à être ajoutés.
+1. Dans Gladys, ouvrez **Intégrations → devolo Home Network → Configuration**.
+2. Remplissez les champs si besoin :
+   - **Adresses des adaptateurs (facultatif)** : seulement pour les adaptateurs que la recherche
+     ne trouve pas, séparées par des virgules (ex. `192.168.1.20, 192.168.1.21`). Donnez-leur une
+     adresse fixe dans votre box : l'intégration les retrouve aussi après un changement d'adresse.
+   - **Mot de passe de l'appareil** : celui de l'app devolo Home Network, le même pour tous les
+     adaptateurs. Certains firmwares l'attendent haché : l'intégration essaie les deux.
+   - **Intervalle de rafraîchissement** : fréquence de lecture des voyants, du Wi-Fi invités et
+     des appareils Wi-Fi (30 secondes par défaut). Les débits CPL sont lus toutes les 5 minutes,
+     la recherche de mise à jour toutes les 6 heures.
+   - **Absent après** : durée pendant laquelle un appareil Wi-Fi peut disparaître avant d'être
+     absent (3 minutes par défaut).
+   - **Autoriser le redémarrage des adaptateurs** : désactivé par défaut. Activé, il ajoute un
+     bouton « Redémarrer » aux adaptateurs (mettez-les à jour dans l'onglet Découverte).
+   - **Langue des noms de fonctionnalités** : français par défaut.
+3. Cliquez sur **Rechercher les adaptateurs** : l'intégration liste ce qu'elle a trouvé et si
+   chaque adaptateur répond.
+4. Dans l'onglet **Découverte**, ajoutez les adaptateurs et les appareils Wi-Fi à suivre.
 
-Le réglage **Préférer la connexion locale** pilote la prise de
-démonstration : elle affiche en badge le canal réellement utilisé (local ou
-cloud), avec un point orange quand elle fonctionne en mode dégradé (local
-refusé, bascule cloud).
+Trafic et quotas : tout reste sur votre réseau local, devolo ne fixe aucun quota sur cette API.
+L'intégration envoie quelques petites requêtes par adaptateur à chaque rafraîchissement, une à la
+fois, comme Home Assistant. Seule la recherche de mise à jour fait contacter le serveur de devolo
+par l'adaptateur, toutes les 6 heures.
 
-## Actions
+## Appareils
 
-- **Tester le fournisseur météo** — effectue une requête en direct vers
-  Open-Meteo et affiche la température et l'humidité actuelles sous le
-  bouton.
-- **Identifier un appareil** — choisissez un de vos appareils dans la liste
-  et il se signale (la lampe de démonstration « clignote » dans les logs).
+### Adaptateur devolo
 
-## Scènes
+| Fonctionnalité            | Type               | Ce qu'elle indique                                          |
+| ------------------------- | ------------------ | ----------------------------------------------------------- |
+| En ligne                  | capteur            | 1 quand l'adaptateur répond, 0 après deux lectures manquées |
+| Débit CPL vers … / depuis | débit, Mbit/s      | débit physique du lien CPL vers et depuis un autre          |
+| Appareils Wi-Fi           | compteur           | appareils connectés à son Wi-Fi (principal et invités)      |
+| Wi-Fi invités             | interrupteur       | active ou coupe le Wi-Fi invités                            |
+| Voyants                   | interrupteur       | allume ou éteint les voyants de l'adaptateur                |
+| Firmware                  | texte              | version du firmware installé                                |
+| Mise à jour disponible    | capteur            | 1 quand devolo propose un firmware plus récent              |
+| Identifier (clignoter)    | bouton             | l'adaptateur clignote un moment                             |
+| Redémarrer                | bouton, facultatif | redémarre l'adaptateur (seulement si autorisé)              |
 
-L'intégration ajoute ses propres cartes à l'éditeur de scènes (Gladys 5.1
-ou plus récent), dans la catégorie **Intégrations** :
+Les fonctionnalités suivent ce que chaque adaptateur annonce : un Magic 2 LAN n'a pas de Wi-Fi, un
+répéteur Wi-Fi n'a pas de débits CPL. Les débits existent pour les adaptateurs du réseau CPL connus
+quand vous ajoutez l'appareil ; si un adaptateur rejoint le réseau plus tard, l'onglet Découverte
+propose de mettre l'appareil à jour. La mise à jour du firmware ne s'installe pas depuis Gladys :
+utilisez l'app devolo Home Network.
 
-- **Mouvement détecté** (déclencheur) — lance la scène quand un détecteur
-  de démonstration voit bouger quelque chose. Choisissez éventuellement le
-  détecteur et ce qui a bougé (personne, animal) ; laissés vides, toute
-  détection correspond. Les actions suivantes peuvent lire ce qui a bougé
-  avec `{{triggerEvent.data.target}}`.
-- **Identifier un appareil** (action) — fait se signaler l'appareil choisi.
-  Elle indique si l'appareil a pu se signaler, pour que les actions
-  suivantes puissent en dépendre.
+### Appareil Wi-Fi
 
-## Tableau de bord
+| Fonctionnalité | Type           | Ce qu'elle indique                                        |
+| -------------- | -------------- | --------------------------------------------------------- |
+| Présence       | présence (0/1) | 1 tant que l'appareil est connecté à un adaptateur devolo |
 
-Ajoutez le widget **État de la démo** à un tableau de bord : il affiche en
-direct la température de la station météo et la puissance de la prise du
-bureau, la connexion utilisée par la prise (en orange si dégradée) et la
-position observée. Son bouton **Identifier la lampe** fait se signaler la
-lampe de démonstration.
+Les adaptateurs ne donnent que l'adresse MAC d'un appareil Wi-Fi : l'onglet Découverte le nomme
+« Appareil Wi-Fi 00:00:5E:… ». Renommez-le après l'avoir ajouté. Un téléphone qui utilise une
+adresse Wi-Fi aléatoire (« privée ») doit utiliser sa vraie adresse sur votre réseau pour que la
+présence fonctionne.
+
+## Widget
+
+**Réseau CPL devolo** : combien d'adaptateurs sont en ligne, combien d'appareils Wi-Fi ils servent,
+le lien CPL le plus lent vers l'adaptateur branché au routeur (celui qui limite le débit internet
+d'une pièce), puis une ligne par adaptateur : ses débits vers l'adaptateur du routeur (vert dès
+100 Mbit/s, orange dès 30 Mbit/s, rouge en dessous), « Branché au routeur » ou « Hors ligne ». Une
+mise à jour en attente est signalée sur la ligne. Un bouton active ou coupe le Wi-Fi invités de tous
+les adaptateurs. Aucune adresse MAC ni aucun mot de passe : le tableau de bord peut être montré à
+des visiteurs.
+
+## Déclencheur de scène
+
+**Nouvel appareil Wi-Fi** : un appareil jamais vu se connecte au Wi-Fi d'un adaptateur devolo. Les
+appareils connectés lors de la première lecture d'un adaptateur sont appris sans déclencher, et la
+liste est conservée entre les redémarrages. Filtre facultatif : Wi-Fi principal ou invités.
+Variables : `mac`, `adapter` (l'adaptateur), `network` (`main` ou `guest`), `band` (`2.4 GHz` ou
+`5 GHz`).
+
+## Actions de scène
+
+- **Activer le Wi-Fi invités** : sur un adaptateur ou sur tous les adaptateurs avec Wi-Fi,
+  éventuellement pour un nombre de minutes (1440 au plus) : l'adaptateur le coupe ensuite lui-même.
+  Sorties : `ssid` (nom du Wi-Fi invités) et `password` (mot de passe), à envoyer dans un message.
+- **Couper le Wi-Fi invités** : sur un adaptateur ou sur tous les adaptateurs avec Wi-Fi.
+
+## Exemples de scènes
+
+- **Des invités arrivent** : à l'appui sur un bouton, activez le Wi-Fi invités pour 240 minutes et
+  envoyez « Wi-Fi {{ssid}}, mot de passe {{password}} » sur le chat de la famille.
+- **Appareil inconnu** : sur « Nouvel appareil Wi-Fi » sur le Wi-Fi principal, envoyez une
+  notification avec l'adresse MAC et l'adaptateur.
+- **Personne à la maison** : quand la présence de tous les téléphones passe à 0, éteignez les
+  voyants des adaptateurs et coupez le Wi-Fi invités ; rallumez les voyants au retour.
+- **Lien faible** : quand le « Débit CPL vers … » de l'adaptateur du bureau reste sous 50 Mbit/s,
+  envoyez une notification (une multiprise ou un chargeur peut perturber la ligne).
 
 ## Dépannage
 
-L'intégration journalise tout ce qu'elle fait : consultez les logs de
-l'intégration depuis l'interface Gladys (ou `docker logs` sur l'hôte) avec
-`LOG_LEVEL=debug` pour le détail complet.
+- **« Aucun adaptateur devolo trouvé »** : vérifiez que les adaptateurs sont sur le même réseau que
+  Gladys, relancez « Rechercher les adaptateurs », ou saisissez leurs adresses dans la
+  configuration.
+- **« a refusé le mot de passe »** : saisissez le mot de passe de l'app devolo Home Network ;
+  laissez vide s'il n'y en a pas. L'état indique quel adaptateur le refuse.
+- **Un adaptateur « ne répond pas »** : il est débranché, en veille ou a changé d'adresse.
+  L'intégration refait une recherche après quelques lectures manquées.
+- **Pas de débit pour un adaptateur** : les débits CPL arrivent toutes les 5 minutes ; les
+  répéteurs Wi-Fi seuls n'en ont pas.
+- **Un appareil Wi-Fi reste absent** : il est peut-être connecté au Wi-Fi de votre box plutôt qu'à
+  un adaptateur devolo, ou utilise une adresse Wi-Fi aléatoire.
+- Journaux : **Intégrations → devolo Home Network → Logs**. `LOG_LEVEL=debug` montre chaque
+  lecture.
+
+## Limites
+
+- La présence ne voit que les appareils connectés à un Wi-Fi **devolo**, pas à votre box ni à une
+  autre borne.
+- Quand aucun adaptateur Wi-Fi ne répond, la présence reste telle quelle.
+- Le nom et le mot de passe du Wi-Fi invités sont ceux de l'app devolo Home Network ; ils ne se
+  changent pas depuis Gladys.
+- Mises à jour du firmware, appairage, WPS et réglages Wi-Fi restent dans l'app devolo Home
+  Network.
+- Les box devolo Home Control ne sont pas prises en charge (ce ne sont pas des adaptateurs réseau).
+- Les débits sont les débits physiques annoncés par les adaptateurs, pas le débit réel.
+- Développée sans le matériel : le comportement avec de vrais adaptateurs n'a pas encore été vérifié.

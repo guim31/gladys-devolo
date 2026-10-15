@@ -31,16 +31,25 @@ pushing.
 ## Architecture
 
 ```
-index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
-src/scenes.js                     scene action handlers (manifest `scene_actions`)
-src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+index.js                          SDK wiring only (src/app.js registers the handlers before connect())
+src/app.js                        handlers → hub, configuration action
+src/hub.js                        adapters, read cycle (own timer), states, presence, scene event, commands
+src/devolo/client.js              client of ONE adapter: Device API + PLC network API, Digest, typed errors
+src/devolo/mdns.js                mDNS records → adapters (core scan format); unicast DNS query
+src/devolo/protobuf.js            minimal protobuf codec (decode everything, encode scalar requests)
+src/devolo/schema.js              the API messages (field numbers, enums)
+src/devolo/digest.js, http.js     HTTP Digest; the one place that opens HTTP connections
+src/devices.js                    Gladys devices (adapters, Wi-Fi devices), feature names in 4 languages
+src/scenes.js                     scene actions (manifest `scene_actions`)
+src/widgets.js                    dashboard widget (manifest `widgets`)
+src/messages.js                   texts sent from the container, 4 languages
+src/problems.js                   repeated failures logged once (start / end)
+src/store.js                      /data/state.json
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
+scripts/probe.mjs                 read-only probe of a real adapter (not in the image)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
+test/                             node --test, against the SDK's fake Gladys and test/helpers/fakeAdapter.js
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,10 +79,11 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German ("du") and Spanish
+  ("usted"): action messages, manifest texts, feature names, widget texts, and
+  `docs/{en,fr,de,es}.md` with the same sections. `test/i18n.test.js` checks it.
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
-  in English. Tests never touch the network.
+  in English. Tests never touch the network (loopback only).
 
 ---
 
@@ -233,3 +243,47 @@ long, et sur un « Sie »/« Ihr… » de politesse en allemand. Le store exige 
 - Docs `en`, `fr`, `de`, `es` avec les mêmes sections.
 - Chauffe, ouverture, sécurité : ne rien rendre pilotable « comme un thermostat » ou par un assistant
   vocal quand une erreur serait dangereuse (leçon d'OctoPrint).
+
+## devolo Home Network (propre à cette intégration)
+
+**API.** Chaque adaptateur annonce deux services mDNS : `_dvl-deviceapi._tcp` (Device API : `SN`,
+`MT`, `Product`, `FirmwareVersion`, `Features`, `Path`, `Version`, parfois `PlcMacAddress`) et
+`_dvl-plcnetapi._tcp` (PLC : `Path`, `Version`, `PlcMacAddress`, `PlcTechnology`), absent des
+répéteurs Wi-Fi seuls. URL : `http://<ip>:<port>/<Path>/<Version>/<Endpoint>`, le `Path` est propre
+à chaque adaptateur (ex. `abcdefghijkl/deviceapi`) : **rien ne marche sans les enregistrements
+TXT**. Protobuf sur HTTP, GET pour lire, POST pour écrire (corps protobuf, vide pour `Restart`).
+Digest, utilisateur `devolo`, mot de passe de l'app (vide par défaut) ; certains firmwares veulent
+le SHA-256 hexadécimal du mot de passe : le client essaie l'autre forme sur un 401, et la retient.
+Les fonctions suivent `Features` : `led`, `wifi1` (Wi-Fi, invités, appareils connectés), `update`,
+`restart` (et `UptimeGet`) ; sans `Features`, la bibliothèque devolo suppose
+`reset,update,led,intmtg`. Débits (`GetNetworkOverview`) en Mbit/s, `double`, de `from` vers `to` ;
+les MAC sont au format `00:00:5E:00:53:00` ou `AABBCCDDEEFF` selon le firmware : toujours
+`normalizeMac` avant de comparer, et renvoyer la MAC **telle qu'annoncée** à `IdentifyDeviceStart`.
+MT 2600/2601 = box Home Control, ignorées. Référence : `2Fake/devolo_plc_api` (GPL, lu, pas
+recopié) et l'intégration HA (Apache 2.0).
+
+**Pièges et choix.**
+
+- Le conteneur ne voit pas le multicast : découverte par le scan mDNS médié du cœur (les deux
+  services déclarés dans `network_discovery`), et pour une adresse saisie, une requête DNS unicast
+  vers le port 5353 de l'adaptateur (« legacy unicast »). Les emplacements trouvés sont gardés
+  dans `/data/state.json` ; un adaptateur muet 3 cycles relance la recherche (10 min au plus
+  souvent) : il a peut-être changé d'adresse (même SN, `params` mis à jour).
+- Requêtes **une à la fois** par adaptateur et adaptateurs l'un après l'autre (HA sérialise
+  aussi : petits appareils). Rythme : cycle configurable (30 s), aperçu CPL toutes les 5 min,
+  `UpdateFirmwareCheck` toutes les 6 h (l'adaptateur interroge devolo, 30 s de délai), jamais au
+  démarrage (il retarderait la découverte).
+- « En ligne » passe à 0 après **deux** cycles manqués (une réponse perdue n'est pas une panne).
+- Les fonctionnalités de débit sont nommées « vers/depuis <pair> » : noms limités à 40 caractères,
+  coupés en gardant un suffixe MAC qui les distingue (le test de conformité l'a attrapé). Un pair
+  débranché garde ses fonctionnalités (pairs mémorisés), un pair nouveau fait proposer « Mettre à
+  jour ».
+- La version du firmware ne vient que du TXT mDNS : la recherche est relancée quand une mise à
+  jour disparaît, et toutes les 6 h.
+- Présence : seuls les appareils sur un Wi-Fi devolo ; si aucun adaptateur Wi-Fi ne répond, la
+  présence ne bouge pas. Déclencheur « nouvel appareil Wi-Fi » : la première lecture de chaque
+  adaptateur apprend en silence (liste `seeded` dans `/data`).
+- Redémarrage : bouton publié seulement si `allow_restart` (faux par défaut), et refusé sinon.
+- Aucune capture réelle publiée : les octets de référence (`test/fixtures/devolo/protobuf.json`)
+  ont été produits par la bibliothèque protobuf officielle à partir des définitions de messages et
+  des valeurs des tests HA. Le chemin `…/plcnetapi` est une hypothèse.

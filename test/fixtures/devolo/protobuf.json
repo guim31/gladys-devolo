@@ -1,0 +1,16 @@
+{
+  "overview_ha": "Cr0CCkgKFmRMQU4gcHJvIDEyMDArIFdpRmkgYWMaBTUuNi4xKgV0ZXN0MToRMDA6MDA6NUU6MDA6NTM6MDBAAUgEWgkxOTIuMC4yLjEKRwoSZGV2b2xvIE1hZ2ljIDIgTEFOGgY3LjEyLjUqBXRlc3QyOhEwMDowMDo1RTowMDo1MzowMkACSAdaCTE5Mi4wLjIuMmABCjQKDWRMQU4gNTUwIGR1bysaBTIuMS4wKgV0ZXN0MzoRMDA6MDA6NUU6MDA6NTM6MDNAAkgDEjgKETAwOjAwOjVFOjAwOjUzOjAwEhEwMDowMDo1RTowMDo1MzowMhkAAAAAAABZQCEAAAAAAABZQBI4ChEwMDowMDo1RTowMDo1MzowMBIRMDA6MDA6NUU6MDA6NTM6MDMZAAAAAADAYkAhAAAAAADAYkA=",
+  "stations_ha": "Ch8KETAwOjAwOjVFOjAwOjUzOjAxEAEYAiD4rQUo+K0F",
+  "stations_none": "",
+  "guest_wifi_ha": "GhBkZXZvbG8tZ3Vlc3QtOTMwIghITUFOUEdCQQ==",
+  "guest_wifi_on": "CAEQOhoQZGV2b2xvLWd1ZXN0LTkzMCIISE1BTlBHQkE=",
+  "firmware_available_ha": "EhA1LjYuMl8yMDIzLTAxLTE1",
+  "firmware_none": "CAE=",
+  "uptime_ha": "EGQ=",
+  "led_off": "CAE=",
+  "led_on": "",
+  "request_led_set_off": "CAE=",
+  "request_guest_on_60": "CAEQPA==",
+  "request_identify": "ChEwMDowMDo1RTowMDo1MzowMA==",
+  "negative_signal": "CioKETAwOjAwOjVFOjAwOjUzOjA0EgR3aWZpGAEgASi3//////////8BMAE="
+}

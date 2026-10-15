@@ -1,169 +1,203 @@
 // -----------------------------------------------------------------------------
-// Dashboard widgets (SDK v0.14+, Gladys 5.1+).
+// Dashboard widget (manifest `widgets`, Gladys 5.1+): `plc_network`.
 //
-// A widget puts the integration's own data on the Gladys dashboard without a
-// dedicated core widget. The manifest `widgets` field declares its identity
-// (key, label, icon, optional per-instance `settings`); at runtime the
-// integration returns a DECLARATIVE content — `text`, `value`, `gauge`,
-// `status`, `chart`, `card-list`, `image`, `button` — that the core renders
-// with its own theme, dark mode and translations. No HTML, no CSS.
+// The PLC network at a glance: how many adapters answer, how many Wi-Fi
+// devices they serve, the slowest PLC link to the adapter plugged into the
+// router (the one that limits the internet speed of a room), then one status
+// row per adapter (its rates to the router adapter, colored by quality, or
+// offline), and a button that switches the guest Wi-Fi of every adapter on
+// or off.
 //
-// Each entry of WIDGETS is keyed by the widget `key` and exposes:
-//   - get(gladys, { settings, language, units, config }): the content,
-//     registered by index.js with `gladys.onWidgetGet(key, ...)`;
-//   - action(gladys, { actionKey, params, settings, config }) (optional): a
-//     tapped `button` carrying an `action`, registered with
-//     `gladys.onWidgetAction`.
-//
-// Check your contents in the tests with `validateWidgetContent` (exported by
-// the SDK, see test/widgets.test.js), or run with DEBUG=gladys-integration-sdk
-// to have the SDK log every violation of the vocabulary and the budget.
+// Budget (8 components, 6 tiles, 1 status, 4 buttons): 3 tiles, 1 status of
+// 10 rows at most, 1 button; a text when no adapter is known. No MAC address
+// and no password: a dashboard can be shown to visitors.
 // -----------------------------------------------------------------------------
 
-import {
-  createLogger,
-  DEVICE_FEATURE_CATEGORIES,
-  DEVICE_TRANSPORTS,
-  WIDGET_COLORS,
-} from '@gladysassistant/integration-sdk';
-import { identifyDevice } from './devices/index.js';
-import { weatherStation } from './devices/weatherStation.js';
-import { plug } from './devices/plug.js';
-import { light } from './devices/light.js';
+import { WIDGET_COLORS } from '@gladysassistant/integration-sdk';
+import { WIDGET_KEY } from './hub.js';
 
-const logger = createLogger({ name: 'widgets' });
+export const TTL_SECONDS = 60;
+export const MAX_STATUS_ROWS = 10;
+// PHY rates (Mbit/s) under which a link is shown as weak, then as poor.
+export const GOOD_RATE = 100;
+export const WEAK_RATE = 30;
+const GUEST_ACTION = 'guest_wifi';
 
-// Widget key, as declared in the manifest `widgets` field.
-export const DEMO_STATUS_WIDGET = 'demo_status';
-
-// Keys of the `button` actions the demo_status content declares.
-const DEMO_STATUS_ACTIONS = { IDENTIFY_LIGHT: 'identify_light' };
-
-// How the plug transport reads in the status list.
-const TRANSPORT_STATUS = {
-  [DEVICE_TRANSPORTS.LOCAL]: { value: { en: 'Local', fr: 'Locale' }, color: WIDGET_COLORS.SUCCESS },
-  [DEVICE_TRANSPORTS.CLOUD]: { value: { en: 'Cloud', fr: 'Cloud' }, color: WIDGET_COLORS.INFO },
-  [DEVICE_TRANSPORTS.UNREACHABLE]: {
-    value: { en: 'Unreachable', fr: 'Injoignable' },
-    color: WIDGET_COLORS.DANGER,
+export const TEXT = {
+  none: {
+    en: 'No devolo adapter found yet: check the configuration of the integration.',
+    fr: "Aucun adaptateur devolo trouvé pour l'instant : vérifiez la configuration de l'intégration.",
+    de: 'Noch kein devolo-Adapter gefunden: Prüfe die Konfiguration der Integration.',
+    es: 'Aún no se ha encontrado ningún adaptador devolo: revise la configuración de la integración.',
+  },
+  online: { en: 'Online', fr: 'En ligne', de: 'Online', es: 'En línea' },
+  wifiDevices: {
+    en: 'Wi-Fi devices',
+    fr: 'Appareils Wi-Fi',
+    de: 'WLAN-Geräte',
+    es: 'Dispositivos Wi-Fi',
+  },
+  slowest: {
+    en: 'Slowest link',
+    fr: 'Lien le plus lent',
+    de: 'Langsamste Strecke',
+    es: 'Enlace más lento',
+  },
+  offline: { en: 'Offline', fr: 'Hors ligne', de: 'Offline', es: 'Sin conexión' },
+  unknown: { en: 'Unknown', fr: 'Inconnu', de: 'Unbekannt', es: 'Desconocido' },
+  router: {
+    en: 'Plugged into the router',
+    fr: 'Branché au routeur',
+    de: 'Am Router',
+    es: 'Conectado al router',
+  },
+  update: { en: 'update', fr: 'mise à jour', de: 'Update', es: 'actualización' },
+  turnOn: {
+    en: 'Turn on guest Wi-Fi',
+    fr: 'Activer Wi-Fi invités',
+    de: 'Gast-WLAN einschalten',
+    es: 'Activar Wi-Fi invitados',
+  },
+  turnOff: {
+    en: 'Turn off guest Wi-Fi',
+    fr: 'Couper Wi-Fi invités',
+    de: 'Gast-WLAN ausschalten',
+    es: 'Apagar Wi-Fi invitados',
+  },
+  turnedOn: {
+    en: 'Guest Wi-Fi turned on.',
+    fr: 'Wi-Fi invités activé.',
+    de: 'Gast-WLAN eingeschaltet.',
+    es: 'Wi-Fi de invitados activado.',
+  },
+  turnedOff: {
+    en: 'Guest Wi-Fi turned off.',
+    fr: 'Wi-Fi invités coupé.',
+    de: 'Gast-WLAN ausgeschaltet.',
+    es: 'Wi-Fi de invitados apagado.',
   },
 };
 
-// A live tile references a feature by its external_id: read it from the
-// discovery payload itself, so the widget and the device never disagree.
-function featureExternalId(gladys, config, blueprint, category) {
-  const device = blueprint.buildDevice(gladys, config);
-  return device.features.find((feature) => feature.category === category).external_id;
+const t = (text, language) => text[language] ?? text.en;
+
+/** The color of a link from its rates. */
+export function rateColor(rate) {
+  const slowest = Math.min(rate.tx, rate.rx);
+  if (slowest >= GOOD_RATE) {
+    return WIDGET_COLORS.SUCCESS;
+  }
+  return slowest >= WEAK_RATE ? WIDGET_COLORS.WARNING : WIDGET_COLORS.DANGER;
 }
 
-function plugConnectionStatus(gladys, config) {
-  const { transport, degraded } = plug.transport(gladys, config);
-  const { value, color } = TRANSPORT_STATUS[transport];
-  if (degraded) {
+/** The status row of one adapter. */
+export function adapterRow(adapter, language) {
+  const row = { label: String(adapter.name).slice(0, 40) };
+  if (adapter.online === false) {
     return {
-      value: { en: `${value.en} (degraded mode)`, fr: `${value.fr} (mode dégradé)` },
-      color: WIDGET_COLORS.WARNING,
+      ...row,
+      value: t(TEXT.offline, language),
+      icon: 'x-circle',
+      color: WIDGET_COLORS.DANGER,
     };
   }
-  return { value, color };
+  if (adapter.online === null) {
+    return {
+      ...row,
+      value: t(TEXT.unknown, language),
+      icon: 'help-circle',
+      color: WIDGET_COLORS.NEUTRAL,
+    };
+  }
+  const suffix = adapter.firmwareUpdate ? ` · ${t(TEXT.update, language)}` : '';
+  if (adapter.rate) {
+    const tx = Math.round(adapter.rate.tx);
+    const rx = Math.round(adapter.rate.rx);
+    return {
+      ...row,
+      value: `↑ ${tx} ↓ ${rx} Mbit/s${suffix}`,
+      icon: 'activity',
+      color: rateColor(adapter.rate),
+    };
+  }
+  return {
+    ...row,
+    value: `${t(adapter.isRouter ? TEXT.router : TEXT.online, language)}${suffix}`,
+    icon: adapter.isRouter ? 'home' : 'check-circle',
+    color: WIDGET_COLORS.SUCCESS,
+  };
 }
 
 export const WIDGETS = {
-  [DEMO_STATUS_WIDGET]: {
-    // `settings` holds the per-instance values of the declared `settings`
-    // (none here); `language` and `units` are those of the user viewing the
-    // dashboard, for the values you format yourself. Multi-language objects
-    // (`{ en, fr }`) are picked by the core, like everywhere else.
-    async get(gladys, { config }) {
-      logger.debug(`onWidgetGet <- ${DEMO_STATUS_WIDGET}`);
-      return {
-        // Reload policy: the computed parts below only change with the
-        // config, and index.js nudges the widget on every (re)connection and
-        // config update (see refreshWidgets) — the TTL is just a safety net.
-        ttl_seconds: 300,
-        components: [
-          // Device-bound tiles: LIVE, they follow the published states over
-          // the core's real-time path. No TTL, no nudge involved.
-          {
-            type: 'value',
-            label: { en: 'Temperature', fr: 'Température' },
-            icon: 'thermometer',
-            device_feature: featureExternalId(
-              gladys,
-              config,
-              weatherStation,
-              DEVICE_FEATURE_CATEGORIES.TEMPERATURE_SENSOR,
-            ),
-          },
-          {
-            type: 'value',
-            label: { en: 'Office plug', fr: 'Prise du bureau' },
-            icon: 'zap',
-            device_feature: featureExternalId(
-              gladys,
-              config,
-              plug,
-              DEVICE_FEATURE_CATEGORIES.ENERGY_SENSOR,
-            ),
-          },
-          // Computed rows: what the integration knows that no device feature
-          // carries. Served from the core cache until the TTL or a nudge.
-          {
-            type: 'status',
-            items: [
-              {
-                label: { en: 'Plug connection', fr: 'Connexion de la prise' },
-                icon: 'wifi',
-                ...plugConnectionStatus(gladys, config),
-              },
-              {
-                label: { en: 'Observed location', fr: 'Position observée' },
-                icon: 'map-pin',
-                value: `${config.latitude.toFixed(2)}, ${config.longitude.toFixed(2)}`,
-                color: WIDGET_COLORS.NEUTRAL,
-              },
-            ],
-          },
-          // `params` are declared HERE and sent back as-is: the handler never
-          // receives user input (a dashboard can hang on a public wall).
-          {
-            type: 'button',
-            label: { en: 'Identify the light', fr: 'Identifier la lampe' },
-            icon: 'eye',
-            style: 'secondary',
-            action: {
-              key: DEMO_STATUS_ACTIONS.IDENTIFY_LIGHT,
-              params: { device: light.deviceExternalId(gladys) },
-            },
-          },
-        ],
-      };
+  [WIDGET_KEY]: {
+    async get(hub, { language = 'en' }) {
+      const { adapters } = hub.view();
+      if (adapters.length === 0) {
+        return {
+          ttl_seconds: TTL_SECONDS,
+          components: [{ type: 'text', variant: 'body', text: t(TEXT.none, language) }],
+        };
+      }
+      const components = [
+        {
+          type: 'value',
+          value: `${adapters.filter((adapter) => adapter.online).length} / ${adapters.length}`,
+          label: t(TEXT.online, language),
+          icon: 'power',
+        },
+      ];
+      const wifi = adapters.filter((adapter) => adapter.wifi);
+      if (wifi.length > 0) {
+        components.push({
+          type: 'value',
+          value: wifi.reduce(
+            (sum, adapter) => sum + (adapter.online ? (adapter.stations ?? 0) : 0),
+            0,
+          ),
+          label: t(TEXT.wifiDevices, language),
+          icon: 'wifi',
+        });
+      }
+      const rates = adapters
+        .filter((adapter) => adapter.online && adapter.rate)
+        .map((adapter) => Math.round(Math.min(adapter.rate.tx, adapter.rate.rx)));
+      if (rates.length > 0) {
+        components.push({
+          type: 'value',
+          value: Math.min(...rates),
+          unit: 'Mbit/s',
+          label: t(TEXT.slowest, language),
+          icon: 'activity',
+        });
+      }
+      components.push({
+        type: 'status',
+        items: adapters.slice(0, MAX_STATUS_ROWS).map((adapter) => adapterRow(adapter, language)),
+      });
+      const guests = wifi.filter((adapter) => adapter.online && adapter.guest !== null);
+      if (guests.length > 0) {
+        const allOn = guests.every((adapter) => adapter.guest);
+        components.push({
+          type: 'button',
+          label: t(allOn ? TEXT.turnOff : TEXT.turnOn, language),
+          icon: allOn ? 'wifi-off' : 'wifi',
+          style: 'secondary',
+          action: { key: GUEST_ACTION, params: { enable: !allOn } },
+        });
+      }
+      return { ttl_seconds: TTL_SECONDS, components };
     },
 
-    // Resolve an optional toast (string or multi-language object, ≤ 200
-    // characters). After a successful action the core drops the cached
-    // content and every open dashboard refetches it: no nudge needed.
-    async action(gladys, { actionKey, params, config }) {
-      logger.info(`onWidgetAction <- ${DEMO_STATUS_WIDGET}.${actionKey}`);
-      if (actionKey === DEMO_STATUS_ACTIONS.IDENTIFY_LIGHT) {
-        return identifyDevice(gladys, params.device, config);
+    async action(hub, { actionKey, params }) {
+      if (actionKey !== GUEST_ACTION) {
+        return undefined;
       }
-      // Throwing acks the action as failed: the message reaches the user.
-      throw new Error(`Unknown widget action: ${actionKey}`);
+      const enable = params?.enable === true;
+      for (const entry of hub.guestWifiAdapters()) {
+        if (entry.online !== false) {
+          await hub.setGuestWifi(entry, enable);
+        }
+      }
+      return enable ? TEXT.turnedOn : TEXT.turnedOff;
     },
   },
 };
-
-/**
- * Freshness nudge: ask the core to re-pull every widget NOW instead of
- * waiting for the content TTL. Call it when you KNOW a computed content
- * changed (here: the config, which drives the plug transport and the observed
- * location) — and after every (re)connection, since the nudges are
- * fire-and-forget: rate-limited core-side to 1 per 10 s per widget, dropped
- * silently while disconnected.
- */
-export function refreshWidgets(gladys) {
-  for (const key of Object.keys(WIDGETS)) {
-    gladys.requestWidgetRefresh(key);
-  }
-}

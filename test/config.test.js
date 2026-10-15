@@ -1,33 +1,44 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeConfig, DEFAULT_CONFIG } from '../src/config.js';
+import { DEFAULT_CONFIG, normalizeConfig, parseAddresses } from '../src/config.js';
 
-test('normalizeConfig returns the defaults when called with no argument', () => {
-  assert.deepEqual(normalizeConfig(), DEFAULT_CONFIG);
+test('the defaults', () => {
+  assert.deepEqual(normalizeConfig(), {
+    addresses: [],
+    password: '',
+    pollInterval: 30,
+    offlineAfter: 180,
+    allowRestart: false,
+    language: 'fr',
+  });
+  assert.deepEqual(normalizeConfig(DEFAULT_CONFIG), normalizeConfig({}));
+  assert.deepEqual(normalizeConfig(null), normalizeConfig({}));
 });
 
-test('normalizeConfig keeps user values over the defaults', () => {
-  const config = normalizeConfig({ latitude: 45.5, longitude: -73.6, unit: 'fahrenheit' });
-  assert.equal(config.latitude, 45.5);
-  assert.equal(config.longitude, -73.6);
-  assert.equal(config.unit, 'fahrenheit');
+test('values outside the lists fall back to the defaults', () => {
+  const config = normalizeConfig({ poll_interval: '7', offline_after: 'x', language: 'it' });
+  assert.equal(config.pollInterval, 30);
+  assert.equal(config.offlineAfter, 180);
+  assert.equal(config.language, 'fr');
+  assert.equal(normalizeConfig({ poll_interval: 120 }).pollInterval, 120);
+  assert.equal(normalizeConfig({ allow_restart: 'true' }).allowRestart, true);
 });
 
-test('normalizeConfig coerces numeric strings coming from a form', () => {
-  const config = normalizeConfig({ latitude: '48.8', longitude: '2.3', poll_frequency: '600' });
-  assert.equal(config.latitude, 48.8);
-  assert.equal(config.longitude, 2.3);
-  assert.equal(config.poll_frequency, 600);
-  assert.equal(typeof config.poll_frequency, 'number');
+test('the password is kept as typed', () => {
+  assert.equal(normalizeConfig({ password: ' a b ' }).password, ' a b ');
+  assert.equal(normalizeConfig({ password: 12 }).password, '');
 });
 
-test('normalizeConfig falls back to the default for a missing numeric field', () => {
-  const config = normalizeConfig({ unit: 'celsius' });
-  assert.equal(config.poll_frequency, DEFAULT_CONFIG.poll_frequency);
-});
-
-test('GLADYS_PREFER_LOCAL defaults to true and only an explicit false disables it', () => {
-  assert.equal(normalizeConfig().GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: true }).GLADYS_PREFER_LOCAL, true);
-  assert.equal(normalizeConfig({ GLADYS_PREFER_LOCAL: false }).GLADYS_PREFER_LOCAL, false);
+test('addresses: commas, spaces, URLs; invalid ones dropped', () => {
+  assert.deepEqual(
+    parseAddresses(
+      '192.0.2.10, 192.0.2.11;http://192.0.2.12/ 192.0.2.10 devolo.local [2001:db8::1] 999.1.1.1',
+    ),
+    ['192.0.2.10', '192.0.2.11', '192.0.2.12', '2001:db8::1'],
+  );
+  assert.deepEqual(parseAddresses(undefined), []);
+  assert.equal(
+    parseAddresses(Array.from({ length: 30 }, (_, i) => `192.0.2.${i}`).join(',')).length,
+    20,
+  );
 });

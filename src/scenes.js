@@ -1,41 +1,41 @@
 // -----------------------------------------------------------------------------
-// Scene actions (SDK v0.14+, Gladys 5.1+).
+// Scene actions (manifest `scene_actions`, Gladys 5.1+).
 //
-// A scene action is an OPERATION a scene author places in a scene, with
-// parameters and a result: "identify this device", "take a snapshot", "clean
-// these rooms". Each one is declared in the manifest `scene_actions` field
-// (key, label, `fields` in the config_schema grammar, scalar `outputs`) and
-// handled here, keyed by that same `key`; index.js registers every entry with
-// `gladys.onSceneAction(key, ...)`.
+// - enable_guest_wifi: switch the guest Wi-Fi on, on one adapter or on every
+//   adapter with Wi-Fi, optionally for a number of minutes (the adapter
+//   switches it off again by itself: devolo's own timer), and return its name
+//   and password for a message to the guests. The core's "Control a device"
+//   can flip the switch too; this action adds the timer and the outputs.
+// - disable_guest_wifi: switch it off.
 //
-// Scene TRIGGERS are the other direction ("this happened"): they are fired by
-// the device that observes the event, see src/devices/motionSensor.js.
-//
-// The rules that matter:
-//   - `fields` arrive RESOLVED: scene variables substituted, defaults applied,
-//     validated by the core; a `"source": "devices"` field is the chosen
-//     device external_id;
-//   - resolve an object of the declared `outputs` (scalars only), readable by
-//     the following actions of the scene, or `undefined` for none. Keys not
-//     declared in the manifest are dropped by the core;
-//   - throwing fails THIS action only: the scene logs it and continues. A
-//     scene action is never a condition: return an output and let the scene
-//     author gate on it;
-//   - never fire a scene event as a consequence of a received action: a scene
-//     bound to that event would loop through the integration.
+// The scene trigger (`new_wifi_device`) is fired by the hub (src/hub.js).
 // -----------------------------------------------------------------------------
 
-import { createLogger } from '@gladysassistant/integration-sdk';
-import { signalDevice } from './devices/index.js';
+import { MAX_GUEST_MINUTES } from './hub.js';
 
-const logger = createLogger({ name: 'scenes' });
+/** Minutes from a number field (or a scene variable resolved to a string). */
+export function minutesOf(value) {
+  const minutes = Math.round(Number(String(value ?? '').replace(',', '.')));
+  return Number.isFinite(minutes) && minutes > 0 ? Math.min(minutes, MAX_GUEST_MINUTES) : 0;
+}
+
+const deviceOf = (fields) =>
+  typeof fields?.device === 'string' && fields.device.trim() ? fields.device.trim() : null;
 
 export const SCENE_ACTIONS = {
-  // The ack is awaited under the action's `timeout_seconds` (15 s in the
-  // manifest), counted from the moment the scene reaches the action.
-  async identify_device(gladys, { fields, config }) {
-    logger.info(`Scene action identify_device <- ${fields.device}`);
-    const signalled = await signalDevice(gladys, fields.device, config);
-    return { signalled };
+  async enable_guest_wifi(hub, { fields }) {
+    const entries = hub.guestWifiAdapters(deviceOf(fields));
+    const minutes = minutesOf(fields?.duration_minutes);
+    for (const entry of entries) {
+      await hub.setGuestWifi(entry, true, minutes);
+    }
+    return hub.guestWifiDetails(entries[0]);
+  },
+
+  async disable_guest_wifi(hub, { fields }) {
+    for (const entry of hub.guestWifiAdapters(deviceOf(fields))) {
+      await hub.setGuestWifi(entry, false);
+    }
+    return {};
   },
 };

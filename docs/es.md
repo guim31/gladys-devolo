@@ -104,6 +104,10 @@ conexión». Una actualización pendiente se indica en la fila. Un botón activa
 invitados de todos los adaptadores. Ni direcciones MAC ni contraseñas: el panel puede mostrarse a
 las visitas.
 
+Cada fila de velocidades nombra el adaptador del otro extremo del enlace (« ↔ nombre »). Los dLAN
+antiguos sin interfaz de gestión, que la búsqueda no encuentra, tienen igualmente su fila, según lo
+que ven los demás adaptadores. El ajuste del widget **Botón Wi-Fi invitados** oculta el botón.
+
 ## Activador de escena
 
 **Nuevo dispositivo Wi-Fi**: un dispositivo nunca visto se conecta a la Wi-Fi de un adaptador

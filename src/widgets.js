@@ -5,8 +5,10 @@
 // devices they serve, the slowest PLC link to the adapter plugged into the
 // router (the one that limits the internet speed of a room), then one status
 // row per adapter (its rates to the router adapter, colored by quality, or
-// offline), and a button that switches the guest Wi-Fi of every adapter on
-// or off.
+// offline) named with the adapter at the other end of the link, including the
+// older dLAN without a management API (known only through the overview of the
+// others), and a button that switches the guest Wi-Fi of every adapter on or
+// off, hidden by the `guest_button` setting.
 //
 // Budget (8 components, 6 tiles, 1 status, 4 buttons): 3 tiles, 1 status of
 // 10 rows at most, 1 button; a text when no adapter is known. No MAC address
@@ -22,6 +24,7 @@ export const MAX_STATUS_ROWS = 10;
 export const GOOD_RATE = 100;
 export const WEAK_RATE = 30;
 const GUEST_ACTION = 'guest_wifi';
+const MAX_VALUE = 40;
 
 export const TEXT = {
   none: {
@@ -112,9 +115,14 @@ export function adapterRow(adapter, language) {
   if (adapter.rate) {
     const tx = Math.round(adapter.rate.tx);
     const rx = Math.round(adapter.rate.rx);
+    const rates = `↑ ${tx} ↓ ${rx} Mbit/s`;
+    // The rates are those of the link to the router adapter: say which one,
+    // in the room left (the update notice comes first).
+    const room = MAX_VALUE - rates.length - suffix.length;
+    const peer = adapter.peer && room > 4 ? ` ↔ ${adapter.peer}`.slice(0, room) : '';
     return {
       ...row,
-      value: `↑ ${tx} ↓ ${rx} Mbit/s${suffix}`,
+      value: `${rates}${peer}${suffix}`,
       icon: 'activity',
       color: rateColor(adapter.rate),
     };
@@ -129,7 +137,7 @@ export function adapterRow(adapter, language) {
 
 export const WIDGETS = {
   [WIDGET_KEY]: {
-    async get(hub, { language = 'en' }) {
+    async get(hub, { language = 'en', settings }) {
       const { adapters } = hub.view();
       if (adapters.length === 0) {
         return {
@@ -174,7 +182,7 @@ export const WIDGETS = {
         items: adapters.slice(0, MAX_STATUS_ROWS).map((adapter) => adapterRow(adapter, language)),
       });
       const guests = wifi.filter((adapter) => adapter.online && adapter.guest !== null);
-      if (guests.length > 0) {
+      if (guests.length > 0 && settings?.guest_button !== false) {
         const allOn = guests.every((adapter) => adapter.guest);
         components.push({
           type: 'button',

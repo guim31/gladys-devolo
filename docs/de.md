@@ -103,6 +103,10 @@ darunter), „Am Router“ oder „Offline“. Ein ausstehendes Firmware-Update 
 Eine Schaltfläche schaltet das Gast-WLAN aller Adapter ein oder aus. Keine MAC-Adresse und kein
 Kennwort: Das Dashboard kann Besuchern gezeigt werden.
 
+Jede Zeile mit Datenraten nennt den Adapter am anderen Ende der Strecke (« ↔ Name »). Ältere dLAN
+ohne Verwaltungs-API, die die Suche nicht findet, bekommen trotzdem ihre Zeile, nach dem, was die
+anderen Adapter sehen. Die Widget-Einstellung **Gast-WLAN-Schaltfläche** blendet die Schaltfläche aus.
+
 ## Szenen-Auslöser
 
 **Neues WLAN-Gerät**: Ein nie gesehenes Gerät verbindet sich mit dem WLAN eines devolo-Adapters.

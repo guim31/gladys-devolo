@@ -926,18 +926,32 @@ export class Hub {
       };
     });
     // The adapters without a management API (older dLAN): only known through
-    // the overview of the others, shown in the widget, never as devices.
+    // the overview of the others, shown in the widget, never as devices. They
+    // are online while an adapter that answers still lists them (the last
+    // overview of an offline adapter is kept).
+    const listed = new Set();
+    for (const entry of this.adapters.values()) {
+      for (const device of entry.overview?.devices ?? []) {
+        const mac = normalizeMac(device.macAddress);
+        if (device.topology === TOPOLOGY_LOCAL) {
+          managed.add(mac);
+        } else if (entry.online) {
+          listed.add(mac);
+        }
+      }
+    }
     for (const [mac, device] of network.devices) {
       if (managed.has(mac)) {
         continue;
       }
+      const online = listed.has(mac);
       const isRouter = mac === router;
-      const rate = router && !isRouter ? linkRate(network, mac, router) : null;
+      const rate = online && router && !isRouter ? linkRate(network, mac, router) : null;
       adapters.push({
         id: null,
         externalId: null,
         name: plcLabel(device),
-        online: true,
+        online,
         isRouter,
         rate,
         peer: rate ? routerName : null,

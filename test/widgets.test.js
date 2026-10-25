@@ -124,3 +124,19 @@ test('a long peer name never pushes the update notice out of the row', () => {
   assert.ok(row.value.length <= 40, row.value);
   assert.match(row.value, /· mise à jour$/);
 });
+
+test('an older dLAN is offline when no adapter that answers lists it any more', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  // test3 is listed by the two PLC adapters; both stop answering.
+  world.net.adapter('1234567890').reachable = false;
+  world.net.adapter('1234567891').reachable = false;
+  await cycleAfter(world);
+  await cycleAfter(world);
+  const widget = await content(world, 'en');
+  const [status] = widget.components.filter((component) => component.type === 'status');
+  const old = status.items.find((item) => item.label === 'dLAN 550 duo+ (test3)');
+  assert.equal(old.value, 'Offline');
+  const [online] = widget.components.filter((component) => component.type === 'value');
+  assert.equal(online.value, '1 / 4');
+});

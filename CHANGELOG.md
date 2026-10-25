@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-25
+
 ### Added
 
 - Widget: the older dLAN without a management API get their row too, from what
@@ -35,5 +37,6 @@ the notes of the version's GitHub Release.
 - Dashboard widget "devolo PLC network".
 - English, French, German and Spanish, documentation included.
 
-[Unreleased]: https://github.com/guim31/gladys-devolo/compare/v1.0.1...HEAD
+[Unreleased]: https://github.com/guim31/gladys-devolo/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/guim31/gladys-devolo/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/guim31/gladys-devolo/releases/tag/v1.0.1

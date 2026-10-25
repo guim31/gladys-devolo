@@ -71,8 +71,11 @@ test('Gladys 5.1.0 at least: widgets, scene triggers and actions, mediated mDNS'
   const [major, minor] = match.slice(1).map(Number);
   assert.ok(major > 5 || (major === 5 && minor >= 1), manifest.gladys_version);
   // No widget button opens a form (#3168, Gladys 5.2.0): 5.1.0 is enough.
+  // Widget settings exist since 5.1.0.
   for (const widget of manifest.widgets) {
-    assert.equal(widget.settings, undefined);
+    for (const component of widget.settings ?? []) {
+      assert.ok(['boolean', 'select', 'multi_select'].includes(component.type), component.key);
+    }
   }
 });
 

@@ -538,6 +538,26 @@
         "es": "Adaptadores en línea, velocidades PLC al router, dispositivos Wi-Fi y Wi-Fi invitados."
       },
       "icon": "activity",
+      "settings": [
+        {
+          "key": "guest_button",
+          "type": "boolean",
+          "label": {
+            "en": "Guest Wi-Fi button",
+            "fr": "Bouton Wi-Fi invités",
+            "de": "Gast-WLAN-Schaltfläche",
+            "es": "Botón Wi-Fi invitados"
+          },
+          "description": {
+            "en": "Shows the button that turns the guest Wi-Fi on or off.",
+            "fr": "Affiche le bouton qui active ou coupe le Wi-Fi invités.",
+            "de": "Zeigt die Schaltfläche, die das Gast-WLAN ein- oder ausschaltet.",
+            "es": "Muestra el botón que activa o apaga el Wi-Fi de invitados."
+          },
+          "required": false,
+          "default": true
+        }
+      ],
       "action_timeout_seconds": 30
     }
   ]

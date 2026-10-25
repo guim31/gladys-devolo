@@ -11,8 +11,8 @@ import { adapterRow, rateColor } from '../src/widgets.js';
 import { LANGUAGES } from '../src/config.js';
 import { createWorld, cycleAfter } from './helpers/world.js';
 
-const content = async (world, language = 'fr') => {
-  const ack = await world.fake.widgetGet(WIDGET_KEY, { settings: {}, language, units: 'metric' });
+const content = async (world, language = 'fr', settings = {}) => {
+  const ack = await world.fake.widgetGet(WIDGET_KEY, { settings, language, units: 'metric' });
   assert.equal(ack.success, true, ack.error);
   return ack.data.content;
 };
@@ -29,7 +29,7 @@ test('the PLC network at a glance, valid in every language', async (t) => {
   assert.deepEqual(
     tiles.map((tile) => [tile.label, tile.value]),
     [
-      ['En ligne', '3 / 3'],
+      ['En ligne', '4 / 4'],
       ['Appareils Wi-Fi', 1],
       ['Lien le plus lent', 100],
     ],
@@ -38,9 +38,11 @@ test('the PLC network at a glance, valid in every language', async (t) => {
   assert.deepEqual(
     status.items.map((item) => [item.label, item.value, item.color]),
     [
-      ['dLAN pro 1200+ WiFi ac (test1)', '↑ 100 ↓ 100 Mbit/s', WIDGET_COLORS.SUCCESS],
+      ['dLAN pro 1200+ WiFi ac (test1)', '↑ 100 ↓ 100 Mbit/s ↔ test2', WIDGET_COLORS.SUCCESS],
       ['devolo Magic 2 LAN (test2)', 'Branché au routeur', WIDGET_COLORS.SUCCESS],
       ['devolo WiFi 6 Repeater 3000', 'En ligne', WIDGET_COLORS.SUCCESS],
+      // An older dLAN without a management API, seen through the others.
+      ['dLAN 550 duo+ (test3)', '↑ 381 ↓ 420 Mbit/s ↔ test2', WIDGET_COLORS.SUCCESS],
     ],
   );
   const [button] = widget.components.filter((component) => component.type === 'button');
@@ -77,7 +79,7 @@ test('an offline adapter and a firmware update show in the rows', async (t) => {
   const [status] = widget.components.filter((component) => component.type === 'status');
   assert.deepEqual(status.items[2].value, 'Offline');
   assert.equal(status.items[2].color, WIDGET_COLORS.DANGER);
-  assert.equal(status.items[0].value, '↑ 100 ↓ 100 Mbit/s · update');
+  assert.equal(status.items[0].value, '↑ 100 ↓ 100 Mbit/s ↔ test2 · update');
 });
 
 test('rates are colored by quality', () => {
@@ -96,4 +98,29 @@ test('no adapter yet: one text that says what to check', async (t) => {
   assert.deepEqual(validateWidgetContent(widget), []);
   assert.equal(widget.components.length, 1);
   assert.match(widget.components[0].text, /^Aún no se ha encontrado/);
+});
+
+test('the guest Wi-Fi button can be hidden by the widget setting', async (t) => {
+  const world = await createWorld();
+  t.after(() => world.app.stop());
+  const shown = await content(world, 'en', { guest_button: true });
+  assert.ok(shown.components.some((component) => component.type === 'button'));
+  const hidden = await content(world, 'en', { guest_button: false });
+  assert.deepEqual(validateWidgetContent(hidden), []);
+  assert.ok(!hidden.components.some((component) => component.type === 'button'));
+});
+
+test('a long peer name never pushes the update notice out of the row', () => {
+  const row = adapterRow(
+    {
+      name: 'a',
+      online: true,
+      rate: { tx: 1000, rx: 1000 },
+      peer: 'x'.repeat(50),
+      firmwareUpdate: true,
+    },
+    'fr',
+  );
+  assert.ok(row.value.length <= 40, row.value);
+  assert.match(row.value, /· mise à jour$/);
 });

@@ -318,17 +318,7 @@ export class Hub {
 
   /** `{ tx, rx }` in Mbit/s from an adapter to another PLC adapter, or null. */
   rateBetween(entry, peerMac, network = this.network()) {
-    const own = entry.info.plcMac;
-    if (!own) {
-      return null;
-    }
-    const direct = network.rates.get(`${own}>${peerMac}`);
-    if (direct) {
-      return { tx: direct.txRate, rx: direct.rxRate };
-    }
-    // Seen from the other side: what it sends is what this one receives.
-    const reverse = network.rates.get(`${peerMac}>${own}`);
-    return reverse ? { tx: reverse.rxRate, rx: reverse.txRate } : null;
+    return entry.info.plcMac ? linkRate(network, entry.info.plcMac, peerMac) : null;
   }
 
   /** The MAC of the adapter plugged into the router, or null. */
@@ -912,22 +902,75 @@ export class Hub {
   view() {
     const network = this.network();
     const router = this.routerMac(network);
+    const routerName = router ? plcName(network.devices.get(router)) : null;
+    const managed = new Set();
     const adapters = [...this.adapters.values()].map((entry) => {
       const mac = entry.info.plcMac;
+      if (mac) {
+        managed.add(mac);
+      }
       const isRouter = Boolean(router && mac === router);
+      const rate = router && mac && !isRouter ? this.rateBetween(entry, router, network) : null;
       return {
         id: entry.info.id,
         externalId: adapterIds(this.gladys, entry.info.id).device,
         name: this.nameOf(entry),
         online: entry.online,
         isRouter,
-        rate: router && mac && !isRouter ? this.rateBetween(entry, router, network) : null,
+        rate,
+        peer: rate ? routerName : null,
         wifi: entry.client.has('wifi1'),
         stations: entry.stations?.length ?? null,
         guest: entry.guest?.enabled ?? null,
         firmwareUpdate: entry.firmwareUpdate?.available ?? false,
       };
     });
+    // The adapters without a management API (older dLAN): only known through
+    // the overview of the others, shown in the widget, never as devices.
+    for (const [mac, device] of network.devices) {
+      if (managed.has(mac)) {
+        continue;
+      }
+      const isRouter = mac === router;
+      const rate = router && !isRouter ? linkRate(network, mac, router) : null;
+      adapters.push({
+        id: null,
+        externalId: null,
+        name: plcLabel(device),
+        online: true,
+        isRouter,
+        rate,
+        peer: rate ? routerName : null,
+        wifi: false,
+        stations: null,
+        guest: null,
+        firmwareUpdate: false,
+        remote: true,
+      });
+    }
     return { adapters };
   }
+}
+
+/** `{ tx, rx }` in Mbit/s from one PLC adapter to another, from either side, or null. */
+function linkRate(network, fromMac, toMac) {
+  const direct = network.rates.get(`${fromMac}>${toMac}`);
+  if (direct) {
+    return { tx: direct.txRate, rx: direct.rxRate };
+  }
+  // Seen from the other side: what it sends is what this one receives.
+  const reverse = network.rates.get(`${toMac}>${fromMac}`);
+  return reverse ? { tx: reverse.rxRate, rx: reverse.txRate } : null;
+}
+
+/** The short name of a PLC adapter: the one given in the devolo app, else the product. */
+function plcName(device) {
+  return device?.userDeviceName || device?.productName || 'devolo';
+}
+
+/** A PLC adapter as the widget rows name the managed ones: "product (name)". */
+function plcLabel(device) {
+  const product = device.productName || 'devolo';
+  const own = device.userDeviceName;
+  return String(own && own !== product ? `${product} (${own})` : product).slice(0, 60);
 }

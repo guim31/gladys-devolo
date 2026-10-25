@@ -10,6 +10,16 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+### Added
+
+- Widget: the older dLAN without a management API get their row too, from what
+  the other adapters see.
+- Widget setting **Guest Wi-Fi button** to hide the button.
+
+### Changed
+
+- Widget: each rate row names the adapter at the other end of the link.
+
 ## [1.0.1] - 2026-10-15
 
 ### Added

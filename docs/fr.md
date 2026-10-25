@@ -104,6 +104,10 @@ mise à jour en attente est signalée sur la ligne. Un bouton active ou coupe le
 les adaptateurs. Aucune adresse MAC ni aucun mot de passe : le tableau de bord peut être montré à
 des visiteurs.
 
+Chaque ligne de débits nomme l'adaptateur à l'autre bout du lien (« ↔ nom »). Les anciens dLAN sans
+interface de gestion, que la recherche ne trouve pas, ont quand même leur ligne, d'après ce que
+voient les autres adaptateurs. Le réglage du widget **Bouton Wi-Fi invités** masque le bouton.
+
 ## Déclencheur de scène
 
 **Nouvel appareil Wi-Fi** : un appareil jamais vu se connecte au Wi-Fi d'un adaptateur devolo. Les

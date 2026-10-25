@@ -100,6 +100,10 @@ from 30 Mbit/s, red below), "Plugged into the router", or "Offline". A pending f
 noted on the row. A button turns the guest Wi-Fi of every adapter on or off. No MAC address and no
 password are shown: the dashboard can be shown to visitors.
 
+Each rate row names the adapter at the other end of the link (« ↔ name »). The older dLAN without
+a management API, which the search cannot find, still get their row from what the other adapters
+see. The widget setting **Guest Wi-Fi button** hides the button.
+
 ## Scene trigger
 
 **New Wi-Fi device**: a device never seen before connects to the Wi-Fi of a devolo adapter. The

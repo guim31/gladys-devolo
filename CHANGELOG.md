@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-17
+
 ### Changed
 
 - SDK 0.16.1 (`@gladysassistant/integration-sdk`).
@@ -41,6 +43,7 @@ the notes of the version's GitHub Release.
 - Dashboard widget "devolo PLC network".
 - English, French, German and Spanish, documentation included.
 
-[Unreleased]: https://github.com/guim31/gladys-devolo/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/guim31/gladys-devolo/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/guim31/gladys-devolo/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/guim31/gladys-devolo/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/guim31/gladys-devolo/releases/tag/v1.0.1
